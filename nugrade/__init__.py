@@ -9,7 +9,7 @@ except ImportError:
     # Try backported to PY<37 `importlib_resources`.
     import importlib_resources as pkg_resources
 
-pickle_path = pkg_resources.open_binary('src', 'EXFOR.pkl')
+pickle_path = pkg_resources.open_binary('nugrade', 'EXFOR.pkl')
 exfor_data = pd.read_pickle(pickle_path)
 
 __all__ = ['Nuclide', 'Reaction', 'exfor_data', 'MetricOptions',
