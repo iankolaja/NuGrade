@@ -47,6 +47,8 @@ def plot_grades(metrics, options):
     ax = fig.add_subplot(111)
     ax.set_xlim(-0.5, z_bound+0.5)
     ax.set_ylim(-0.5, n_bound+0.5)
+    ax.set_xlabel("Z")
+    ax.set_ylabel("N")
     ax.set_xticks(range(0, z_bound+1))
     ax.set_yticks(range(0, n_bound+1))
     for metric in metrics.values():
