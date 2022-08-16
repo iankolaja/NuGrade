@@ -13,10 +13,12 @@ def grade_isotope(exfor_data, isotope, options):
     return nuc
 
 
-def grade_all_isotopes(exfor_data, options):
+def grade_many_isotopes(exfor_data, options, num_to_grade = None):
     isotope_array = exfor_data.Isotope.unique()
     metrics = {}
-    for i in range(20):
+    if num_to_grade is None:
+        num_to_grade = len(isotope_array)
+    for i in range(num_to_grade):
         isotope = isotope_array[i]
         if isotope == "Heavy Water":
             continue
