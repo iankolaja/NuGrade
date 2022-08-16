@@ -10,7 +10,7 @@ except ImportError:
     import importlib_resources as pkg_resources
 
 pickle_path = pkg_resources.open_binary('nugrade', 'EXFOR.pkl')
-exfor_data = pd.read_pickle(pickle_path)
+exfor_data = pd.read_pickle(pickle_path, compression=None)
 
 __all__ = ['Nuclide', 'Reaction', 'exfor_data', 'MetricOptions',
-           'grade_isotope', 'grade_all_isotopes', 'plot_grades']
+           'grade_isotope', 'grade_many_isotopes', 'plot_grades']
