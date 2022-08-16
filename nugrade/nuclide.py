@@ -80,7 +80,7 @@ class Nuclide:
                 print("        Energy Completeness: {0}%".format(round(reaction.energy_coverage, 2)))
             if options.precision_reference is not None:
                 if reaction.eval_precision != 0:
-                    print("        Average Standard Deviation: {0} barns/dataset".format(
+                    print("        Average Absolute Relative Error: {0}%".format(
                         round(reaction.eval_precision, 3)))
                 else:
                     print("        No measurements in energy range.")
@@ -192,22 +192,22 @@ class Nuclide:
                     evaluation_df['xs(mb)'] = evaluation_df['xs(mb)'].apply(lambda x: x / 1000.0)
                     evaluation_energy = evaluation_df['E(eV)'].to_numpy().astype(np.float)
                     evaluation_xs = evaluation_df['xs(mb)'].to_numpy().astype(np.float)
-                    interpolated_xs = np.interp(sorted_energy_array, evaluation_energy, evaluation_xs)
 
                     average_stdev = np.float64(0.0)
                     applicable_datasets = np.int32(0)
                     for dataset_ID in self.dataset_IDs:
                         # print("MT: {0} Dataset: {1}".format(MT,dataset_ID))
                         exfor_dataset = channel_data.loc[dataset_ID == channel_data['Dataset_Number']]
-                        stdev = calc_eval_precision(exfor_dataset, sorted_energy_array, interpolated_xs,
+                        absolute_relative_error = calc_eval_precision(exfor_dataset, evaluation_energy, evaluation_xs,
                                                     options.lower_energy, options.upper_energy)
-                        if stdev is None:
+                        if absolute_relative_error is None:
                             pass
                         else:
-                            average_stdev += stdev
+                            average_stdev += absolute_relative_error
                             applicable_datasets += 1
                     if applicable_datasets > 0:
                         self.SIG_measurements[channel].eval_precision = average_stdev / applicable_datasets
+                        self.application_fit *= (1-self.SIG_measurements[channel].eval_precision)
                     else:
                         self.SIG_measurements[channel].eval_precision = np.float64(0.0)
 
