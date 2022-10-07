@@ -4,7 +4,8 @@ import os
 import re
 from .config import NUC_DAT_PATH
 from .calc_energy_coverage import calc_energy_coverage
-from .calc_eval_precision import calc_eval_precision
+from .calc_relative_error import calc_relative_error
+from .calc_chi_squared import calc_chi_squared
 
 
 class Reaction:
@@ -34,6 +35,11 @@ class Nuclide:
         self.SIG_measurements = {}
         self.num_reaction_channels = np.int32(0)
         self.num_xs_measurements = np.int32(0)
+        self.error_energies = np.float64([])
+        self.relative_error = np.float64([])
+        self.chi_energies = np.float64([])
+        self.chi_squared_values = np.float64([])
+        self.chi_squared_per_degree_of_freedom = np.float64([])
         self.EXFOR_IDs = []
         self.dataset_IDs = []
         self.application_fit = np.float32(1.0)
@@ -54,39 +60,41 @@ class Nuclide:
     # (EXFOR.loc[EXFOR['EXFOR_Entry'] == i].sample())
 
     def print_report(self, options):
-        print("Nuclide: {0}{1}".format(self.A, self.symbol))
-        print("    Overall fit for application: {0}".format(self.application_fit))
-        print("    Number of experiments: {0}".format(self.num_experiments))
+        report_s = ""
+        report_s += "Nuclide: {0}{1}\n".format(self.A, self.symbol)
+        report_s += "    Overall fit for application: {0}\n".format(self.application_fit)
+        report_s += "    Number of experiments: {0}\n".format(self.num_experiments)
         # Report XS uncertainty
         if options.xs_uncertainty_check:
-            print("    Percent reporting uncertainty on cross section: {0}%".format(round(self.percent_xs_unc, 2)))
+            report_s += "    Percent reporting uncertainty on cross section: {0}%\n".format(round(self.percent_xs_unc, 2))
         # Report energy uncertainty
         if options.energy_uncertainty_check:
-            print("    Percent reporting uncertainty on energy: {0}%".format(round(self.percent_energy_unc, 2)))
-        print("    Number of cross section datasets: {0}  ({1} required)".format(self.num_xs_measurements,
-                                                                                 options.num_xs_threshold))
-        print("    SIG measurements:")
+            report_s += "    Percent reporting uncertainty on energy: {0}%\n".format(round(self.percent_energy_unc, 2))
+        report_s += "    Number of cross section datasets: {0}  ({1} required)\n".format(self.num_xs_measurements,
+                                                                                 options.num_xs_threshold)
+        report_s += "    SIG measurements:\n"
 
         # Report how many measurements there are for each reaction channel, and if desired report energy completion
         if options.upper_energy is not None and options.lower_energy is not None:
-            print("    Reporting energy completion from {0} MeV to {1} MeV with spacing of {2} eV".format(
-                options.lower_energy * 1E-6, options.upper_energy * 1E-6, options.energy_width))
+            report_s += "    Reporting energy completion from {0} MeV to {1} MeV with spacing of {2} eV\n".format(
+                options.lower_energy * 1E-6, options.upper_energy * 1E-6, options.energy_width)
         for channel in self.SIG_measurements.keys():
             reaction = self.SIG_measurements[channel]
             if reaction.MT not in options.required_reaction_channels:
                 continue
-            print("    {0} -> {1} XS measurements [MT = {2}]".format(channel, reaction.num_measurements, reaction.MT))
+            report_s += "    {0} -> {1} XS measurements [MT = {2}]\n".format(channel, reaction.num_measurements, reaction.MT)
             if options.energy_width is not None:
-                print("        Energy Completeness: {0}%".format(round(reaction.energy_coverage, 2)))
+                report_s += "        Energy Completeness: {0}%\n".format(round(reaction.energy_coverage, 2))
             if options.precision_reference is not None:
                 if reaction.eval_precision != 0:
-                    print("        Average Absolute Relative Error: {0}%".format(
-                        round(reaction.eval_precision, 3)))
+                    report_s += "        Average Absolute Relative Error: {0}%\n".format(
+                        round(reaction.eval_precision, 3))
                 else:
-                    print("        No measurements in energy range.")
-        # print("All types of data reported:")
-        # for reaction_type in self.reactions.keys():
-        #    print("{0} -> {1} experiments".format(reaction_type,self.reactions[reaction_type]))
+                    report_s += "        No measurements in energy range.\n"
+        print(report_s)
+        report_s = report_s.replace('\n', '<br>')
+        return report_s
+
 
     def get_metrics(self, isotope_data, options):
         self.get_exfor_ids(isotope_data)
@@ -198,16 +206,36 @@ class Nuclide:
                     for dataset_ID in self.dataset_IDs:
                         # print("MT: {0} Dataset: {1}".format(MT,dataset_ID))
                         exfor_dataset = channel_data.loc[dataset_ID == channel_data['Dataset_Number']]
-                        absolute_relative_error = calc_eval_precision(exfor_dataset, evaluation_energy, evaluation_xs,
-                                                    options.lower_energy, options.upper_energy)
-                        if absolute_relative_error is None:
+                        average_relative_error, error_x, relative_error = calc_relative_error(exfor_dataset,
+                                                                                              evaluation_energy,
+                                                                                              evaluation_xs,
+                                                                                              options.lower_energy,
+                                                                                              options.upper_energy)
+                        print("{0}: {1}%".format(dataset_ID, average_relative_error))
+                        if average_relative_error is None:
                             pass
                         else:
-                            average_stdev += absolute_relative_error
+                            self.error_energies = np.append(self.error_energies, error_x)
+                            self.relative_error = np.append(self.relative_error, relative_error)
+                            average_stdev += average_relative_error
                             applicable_datasets += 1
+                        chi_squared_per_degree, chi_x, chi_squared_values = calc_chi_squared(exfor_dataset,
+                                                                                             evaluation_energy,
+                                                                                             evaluation_xs,
+                                                                                             options.lower_energy,
+                                                                                             options.upper_energy)
+                        if chi_squared_per_degree is None:
+                            pass
+                        else:
+                            self.chi_energies = np.append(self.chi_energies, chi_x)
+                            self.chi_squared_values = np.append(self.chi_squared_values, chi_squared_values)
                     if applicable_datasets > 0:
                         self.SIG_measurements[channel].eval_precision = average_stdev / applicable_datasets
-                        self.application_fit *= (1-self.SIG_measurements[channel].eval_precision)
+                        precision_fit = 1 - self.SIG_measurements[channel].eval_precision/100
+                        if precision_fit > 0:
+                            self.application_fit *= precision_fit
+                        else:
+                            self.application_fit *= 0
                     else:
                         self.SIG_measurements[channel].eval_precision = np.float64(0.0)
 
