@@ -4,21 +4,64 @@ import os
 import re
 from .config import NUC_DAT_PATH
 from .calc_energy_coverage import calc_energy_coverage
-from .calc_relative_error import calc_relative_error
-from .calc_chi_squared import calc_chi_squared
+from bokeh.models import ColumnDataSource, CategoricalColorMapper
+from bokeh.plotting import figure, show
+from bokeh.embed import components
+from bokeh.palettes import inferno
+
 
 
 class Reaction:
-    def __init__(self, notation, MT):
-        self.notation = notation
-        self.energy_coverage = np.float64(0.0)
-        self.eval_precision = np.float64(0.0)
+    def __init__(self, mt,  reaction_name):
+        self.energy_coverage = np.float32(0.0)
+        self.energy_coverage_w_unc = np.float32(0.0)
+        self.average_chi_squared_per_degree = np.float32(0.0)
+        self.average_absolute_relative_error = np.float32(0.0)
+        self.score = 0.0
         self.num_measurements = np.int32(1)
-        self.MT = MT
-        # self.deviation_from_ENDF = 0.0
+        self.mt = mt
+        self.data = pd.DataFrame()
+        self.name = reaction_name
 
-    def increment(self):
-        self.num_measurements += 1
+    def load_data(self, dataset_path):
+        data_file_columns = {'Energy': np.float64, 'dEnergy': np.float64, 'Data': np.float64, 'dData': np.float64,
+                             'EXFOR_Entry': str, 'Year': np.int16, 'Author': str, 'Dataset_Number': str}
+        try:
+            self.data = pd.read_csv(dataset_path, dtype=data_file_columns)
+        except FileNotFoundError:
+            self.data = pd.DataFrame()
+        return self.data
+
+    def calc_metrics(self, options):
+        channel_data = self.data[self.data['Energy'].between(options.lower_energy, options.upper_energy)]
+        self.energy_coverage = calc_energy_coverage(channel_data, options)
+        #self.energy_coverage_with_unc = calc_energy_coverage(channel_data, options)
+        self.average_absolute_relative_error = np.nanmean(np.abs(channel_data[options.evaluation + '_relative_error']))
+        self.average_chi_squared_per_degree = np.nanmean(np.abs(channel_data[options.evaluation+'_chi_squared']))
+        self.scored_metric = channel_data[f"{options.evaluation}_{options.scored_metric}"]
+        if options.weighting_function is "maxwell-boltzmann-room-temp":
+            kT = 8.6173033E-5 * 293.61 # (eV/K) Boltzmann constant times room temp (K)
+            mass = 1.674E-27
+            weighting_function = lambda energy : np.sqrt(2*energy/mass)*(2*np.pi*np.sqrt(energy)) / (np.pi*kT)**(3/2) * np.exp(-energy/kT)
+            normalizing_constant = weighting_function(kT)
+        if options.weighting_function is "maxwell-boltzmann-320C":
+            kT = 8.6173033E-5 * 593 # (eV/K) Boltzmann constant times room temp (K)
+            normalizing_constant = weighting_function(kT)
+            mass = 1.674E-27
+            weighting_function = lambda energy : np.sqrt(2*energy/mass)*(2*np.pi*np.sqrt(energy)) / (np.pi*kT)**(3/2) * np.exp(-energy/kT)
+        if options.weighting_function is "watt":
+            a = 0.453
+            b = 1.036
+            c = 2.29
+            weighting_function = lambda energy : a*np.exp(-b*energy/1E6)*np.sinh(np.sqrt(c*energy/1E6))
+            normalizing_constant = weighting_function(7.23803E5)
+        if options.weighting_function is not None:
+            try:
+                self.scored_metric = weighting_function(channel_data['Energy'])*self.scored_metric/normalizing_constant
+            except:
+                print("Invalid distribution provided.")
+        self.num_measurements = len(pd.unique(self.data["Dataset_Number"]))
+        self.score = self.energy_coverage/np.nanmean(self.scored_metric)
 
 
 class Nuclide:
@@ -27,225 +70,135 @@ class Nuclide:
         self.A = int(A)
         self.N = A - Z
         self.symbol = symbol
-        self.num_experiments = np.int32(0)
-        self.percent_energy_unc = np.float64(0.0)
-        self.percent_xs_unc = np.float64(0.0)
-        self.average_energy_completeness = np.float64(0.0)
         self.reactions = {}
-        self.SIG_measurements = {}
-        self.num_reaction_channels = np.int32(0)
-        self.num_xs_measurements = np.int32(0)
-        self.error_energies = np.float64([])
-        self.relative_error = np.float64([])
-        self.chi_energies = np.float64([])
-        self.chi_squared_values = np.float64([])
-        self.chi_squared_per_degree_of_freedom = np.float64([])
-        self.EXFOR_IDs = []
-        self.dataset_IDs = []
-        self.application_fit = np.float32(1.0)
+        self.num_datasets = np.int16(0)
 
-    def get_exfor_ids(self, isotope_data):
-        self.EXFOR_IDs = isotope_data.EXFOR_Entry.unique()
-        self.dataset_IDs = isotope_data.Dataset_Number.unique()
-        self.num_experiments = len(self.EXFOR_IDs)
 
     def print_experiments(self, exfor_data):
         for exp_id in self.EXFOR_IDs:
             sample_point = exfor_data.loc[exfor_data['EXFOR_Entry'] == exp_id].sample()
             print("{0}: [{2}] {3}, {1}".format(
                 sample_point["Reaction_Notation"].item(),
-                sample_point["Title"].item(),
+                sample_point["Dataset_Number"].item(),
                 sample_point["EXFOR_Entry"].item(),
                 sample_point["Author"].item()))
     # (EXFOR.loc[EXFOR['EXFOR_Entry'] == i].sample())
 
-    def print_report(self, options):
+    def gen_report(self, options, for_web=False):
         report_s = ""
+        if for_web:
+            report_s += "<p>"
         report_s += "Nuclide: {0}{1}\n".format(self.A, self.symbol)
-        report_s += "    Overall fit for application: {0}\n".format(self.application_fit)
-        report_s += "    Number of experiments: {0}\n".format(self.num_experiments)
-        # Report XS uncertainty
-        if options.xs_uncertainty_check:
-            report_s += "    Percent reporting uncertainty on cross section: {0}%\n".format(round(self.percent_xs_unc, 2))
-        # Report energy uncertainty
-        if options.energy_uncertainty_check:
-            report_s += "    Percent reporting uncertainty on energy: {0}%\n".format(round(self.percent_energy_unc, 2))
-        report_s += "    Number of cross section datasets: {0}  ({1} required)\n".format(self.num_xs_measurements,
-                                                                                 options.num_xs_threshold)
-        report_s += "    SIG measurements:\n"
-
-        # Report how many measurements there are for each reaction channel, and if desired report energy completion
-        if options.upper_energy is not None and options.lower_energy is not None:
-            report_s += "    Reporting energy completion from {0} MeV to {1} MeV with spacing of {2} eV\n".format(
-                options.lower_energy * 1E-6, options.upper_energy * 1E-6, options.energy_width)
-        for channel in self.SIG_measurements.keys():
-            reaction = self.SIG_measurements[channel]
-            if reaction.MT not in options.required_reaction_channels:
-                continue
-            report_s += "    {0} -> {1} XS measurements [MT = {2}]\n".format(channel, reaction.num_measurements, reaction.MT)
-            if options.energy_width is not None:
-                report_s += "        Energy Completeness: {0}%\n".format(round(reaction.energy_coverage, 2))
-            if options.precision_reference is not None:
-                if reaction.eval_precision != 0:
-                    report_s += "        Average Absolute Relative Error: {0}%\n".format(
-                        round(reaction.eval_precision, 3))
-                else:
-                    report_s += "        No measurements in energy range.\n"
-        print(report_s)
-        report_s = report_s.replace('\n', '<br>')
+        report_s += "Number of datasets: {0}\n".format(self.num_datasets)
+        report_s += "Reaction reports:\n"
+        if for_web:
+            report_s += "</p>"
+            report_s = report_s.replace('\n', '<br>')
+            report_s = report_s.replace(' ', '&nbsp;')
+        for channel_name in self.reactions.keys():
+            reaction = self.reactions[channel_name]
+            reaction_s = ""
+            if for_web:
+                reaction_s += "<p>"
+            reaction_s += "  ({0}) [MT = {1}]\n".format(reaction.name, reaction.mt)
+            reaction_s += "    Energy Completeness: {0}%\n".format(reaction.energy_coverage)
+            reaction_s += "    Energy Completeness with Uncertainty: {0}%\n".format(reaction.energy_coverage_w_unc)
+            reaction_s += "    Average absolute relative error: {0}%\n".format(reaction.average_absolute_relative_error)
+            reaction_s += "    Average Chi Squared Per Degree of Freedom: {0}\n".format(reaction.average_chi_squared_per_degree)
+            reaction_s += "    Overall score: {0}\n".format(reaction.score)
+            if for_web:
+                reaction_s += "</p>"
+                reaction_s = reaction_s.replace('\n', '<br>')
+                reaction_s = reaction_s.replace(' ', '&nbsp;')
+                plot = plot_precision_data(reaction, options.evaluation, show_plot=False)
+                reaction_s += plot[0]
+                reaction_s += plot[1]
+            else:
+                plot_precision_data(reaction, options.evaluation, show_plot=True)
+            report_s += reaction_s
         return report_s
 
 
-    def get_metrics(self, isotope_data, options):
-        self.get_exfor_ids(isotope_data)
-        num_xs_unc = np.int32(0)
-        num_energy_unc = np.int32(0)
-
-        # Check how many experiments report cross section uncertainty
-        if options.xs_uncertainty_check:
-            for exp_id in self.EXFOR_IDs:
-                sample_point = isotope_data.loc[isotope_data['EXFOR_Entry'] == exp_id].sample()
-                ddata = sample_point['dData']
-                if not ddata.isnull().values.any():
-                    num_xs_unc += 1
-            self.percent_xs_unc = num_xs_unc / self.num_experiments
-            self.application_fit *= self.percent_xs_unc
-
-        # Check how many experiments report energy uncertainty
-        # Fit is multiplied by that value.
-        if options.energy_uncertainty_check:
-            for exp_id in self.EXFOR_IDs:
-                sample_point = isotope_data.loc[isotope_data['EXFOR_Entry'] == exp_id].sample()
-                denergy = sample_point['dEnergy']
-                if not denergy.isnull().values.any():
-                    num_energy_unc += 1
-            self.percent_energy_unc = num_energy_unc / self.num_experiments
-            self.application_fit *= self.percent_energy_unc
-
-        # Determine reaction channel statistics on a dataset basis
-        for dataset_id in self.dataset_IDs:
-            sample_point = isotope_data.loc[isotope_data['Dataset_Number'] == dataset_id].sample()
-            reaction_type = sample_point['Reaction_Notation'].item()
-            MT = int(sample_point['MT'].item())
-            if "SIG" in reaction_type:
-                channel = reaction_type
-                if channel[0] == "(":
-                    channel = channel[1:]
-                channel = channel.split("(")[1].split(")")[0]
-                channel = "(" + channel + ")"
-                if channel in self.SIG_measurements.keys():
-                    self.SIG_measurements[channel].increment()
-                    self.num_xs_measurements += 1
-                else:
-                    self.SIG_measurements[channel] = Reaction(reaction_type, MT)
-                    self.num_xs_measurements += 1
-            if reaction_type in self.reactions.keys():
-                self.reactions[reaction_type].increment()
-            else:
-                self.reactions[reaction_type] = Reaction(reaction_type, MT)
-
-        # Check if there are enough experiments compared to the threshold.
-        # The more experiments compared to the threshold, the better.
-        # Otherwise, the fit is dropped to 0.
-        if 0 < options.num_xs_threshold <= self.num_xs_measurements:
-            self.application_fit *= self.num_xs_measurements/options.num_xs_threshold
-        elif 0 < options.num_xs_threshold:
-            self.application_fit *= 0
-
-        # Check to see if all of the required reactions are present.
-        if len(options.required_reaction_channels) > 0:
-            measured_mts = []
-            for react in self.reactions.values():
-                measured_mts += [react.MT]
-            for required_reaction in options.required_reaction_channels:
-                if required_reaction not in measured_mts:
-                    self.application_fit *= 0
-                    print("Required reaction MT = {0} not found.".format(required_reaction))
-
-        # Calculate reaction-channel level metrics if energies are provided
-        if options.upper_energy is not None and options.lower_energy is not None:
-            for channel in self.SIG_measurements.keys():
-                reaction_notation = self.SIG_measurements[channel].notation
-                MT = self.SIG_measurements[channel].MT
-                if MT not in options.required_reaction_channels:
-                    continue
-                channel_data = isotope_data.loc[reaction_notation == isotope_data['Reaction_Notation']]
-                energy_array = channel_data['Energy'].to_numpy().astype(np.float)
-                sorted_energy_array = _sort_channel_energy(energy_array, options.lower_energy, options.upper_energy)
-                if len(sorted_energy_array) == 0:
-                    continue
-
-                # Calculate energy completeness
-                if options.energy_width is not None:
-                    energy_array = channel_data['Energy'].to_numpy().astype(np.float)
-                    self.SIG_measurements[channel].energy_coverage = calc_energy_coverage(
-                        sorted_energy_array, options.lower_energy, options.upper_energy, options.energy_width)
-
-                # Calculate precision relative to an evaluation
-                if options.precision_reference is not None:
-                    MT_str = "{:03d}".format(MT)
-                    A_str = "{:03d}".format(self.A)
-                    isotope_str = self.symbol + A_str
-                    reaction_file = "n-{0}-MT{1}.{2}".format(isotope_str, MT_str,
-                                                             options.precision_reference)
-                    file_path = os.path.join(NUC_DAT_PATH, "Evaluated_Data/neutrons/{0}/{1}/tables/xs/{2}".format(
-                        isotope_str, options.precision_reference, reaction_file))
-                    try:
-                        evaluation_df = pd.read_csv(file_path, sep=" ", names=["E(eV)", "xs(mb)", "xslow(mb)", "xsupp(mb)"],
-                                                    skipinitialspace=True, skiprows=5)
-                    except:
-                        print("{0} not found. Does an evaluation exist for this reaction?".format(reaction_file))
-                        continue
-                    evaluation_df['E(eV)'] = evaluation_df['E(eV)'].apply(lambda x: x * 1E6)
-                    evaluation_df['xs(mb)'] = evaluation_df['xs(mb)'].apply(lambda x: x / 1000.0)
-                    evaluation_energy = evaluation_df['E(eV)'].to_numpy().astype(np.float)
-                    evaluation_xs = evaluation_df['xs(mb)'].to_numpy().astype(np.float)
-
-                    average_stdev = np.float64(0.0)
-                    applicable_datasets = np.int32(0)
-                    for dataset_ID in self.dataset_IDs:
-                        # print("MT: {0} Dataset: {1}".format(MT,dataset_ID))
-                        exfor_dataset = channel_data.loc[dataset_ID == channel_data['Dataset_Number']]
-                        average_relative_error, error_x, relative_error = calc_relative_error(exfor_dataset,
-                                                                                              evaluation_energy,
-                                                                                              evaluation_xs,
-                                                                                              options.lower_energy,
-                                                                                              options.upper_energy)
-                        print("{0}: {1}%".format(dataset_ID, average_relative_error))
-                        if average_relative_error is None:
-                            pass
-                        else:
-                            self.error_energies = np.append(self.error_energies, error_x)
-                            self.relative_error = np.append(self.relative_error, relative_error)
-                            average_stdev += average_relative_error
-                            applicable_datasets += 1
-                        chi_squared_per_degree, chi_x, chi_squared_values = calc_chi_squared(exfor_dataset,
-                                                                                             evaluation_energy,
-                                                                                             evaluation_xs,
-                                                                                             options.lower_energy,
-                                                                                             options.upper_energy)
-                        if chi_squared_per_degree is None:
-                            pass
-                        else:
-                            self.chi_energies = np.append(self.chi_energies, chi_x)
-                            self.chi_squared_values = np.append(self.chi_squared_values, chi_squared_values)
-                    if applicable_datasets > 0:
-                        self.SIG_measurements[channel].eval_precision = average_stdev / applicable_datasets
-                        precision_fit = 1 - self.SIG_measurements[channel].eval_precision/100
-                        if precision_fit > 0:
-                            self.application_fit *= precision_fit
-                        else:
-                            self.application_fit *= 0
-                    else:
-                        self.SIG_measurements[channel].eval_precision = np.float64(0.0)
-
-        self.num_reaction_channels = len(self.SIG_measurements.keys())
+    def get_metrics(self, options):
+        self.reactions = {}
+        self.num_datasets = np.int16(0)
+        for reaction_codes in options.required_reaction_channels:
+            mt = reaction_codes[0]
+            reaction_name = reaction_codes[1]
+            self.reactions[reaction_name] = Reaction(mt, reaction_name)
+            data_file = f"{options.projectile}_{self.Z}_{self.A}_{reaction_name}.csv"
+            data_path = os.path.join(NUC_DAT_PATH, data_file)
+            channel_data = self.reactions[reaction_name].load_data(data_path)
+            if len(channel_data) > 0:
+                self.reactions[reaction_name].data = channel_data
+                self.reactions[reaction_name].calc_metrics(options)
+            self.num_datasets += self.reactions[reaction_name].num_measurements
 
 
-def _sort_channel_energy(energy_array, lower_energy, upper_energy):
-    sorted_energy_array = np.sort(energy_array)
-    filtered_booleans = np.where(
-        np.logical_and(sorted_energy_array >= lower_energy, sorted_energy_array <= upper_energy))
-    sorted_energy_array = sorted_energy_array[filtered_booleans]
-    sorted_energy_array = np.unique(sorted_energy_array)
-    return sorted_energy_array
+def plot_precision_data(reaction, evaluation_code, show_plot=False):
+    evaluation_error_column = evaluation_code + '_relative_error'
+    evaluation_chi_column = evaluation_code + '_chi_squared'
+    reaction_data = reaction.data.rename(columns={evaluation_error_column: "Relative_Error",
+                                                  evaluation_chi_column: "Chi_Squared"})
+    x_lower_bound = np.min((1,np.min(reaction_data['Energy'])))
+    x_upper_bound = np.max((1000,np.max(reaction_data['Energy'])))
+    error_y_bound = np.max((np.abs(reaction_data["Relative_Error"]))) * 1.05
+    chi_y_lower_bound = np.min((0.1, np.min(reaction_data["Chi_Squared"])))
+    chi_y_upper_bound = np.max((1, np.max(reaction_data["Chi_Squared"])))* 1.05
+
+    # Relative Uncertainty Plot
+    source = ColumnDataSource(reaction_data)
+    tooltip_format = [
+        ("Energy (eV)", "@Energy"),
+        ("Relative Error (%)", "@Relative_Error"),
+        ("Dataset ID", "@Dataset_Number"),
+        ("Year", "@Year"),
+        ("Author", "@Author")
+    ]
+
+    p = figure(width=600, height=250, y_range=(-error_y_bound, error_y_bound),
+               x_range=(x_lower_bound, x_upper_bound),
+               tools="pan,wheel_zoom,box_zoom,reset,hover",
+               x_axis_type="log", sizing_mode="scale_both", tooltips=tooltip_format)
+    palette = inferno(len(reaction.data['Dataset_Number'].unique()))
+    print(palette)
+    color_map = CategoricalColorMapper(factors=reaction.data['Dataset_Number'].unique(),
+                                       palette=palette)
+    p.scatter('Energy', "Relative_Error", size=3,
+              source=source,
+              color={'field': 'Dataset_Number', 'transform': color_map})
+    p.xaxis[0].axis_label = 'Energy (eV)'
+    p.yaxis[0].axis_label = 'Relative Uncertainty (%)'
+    p.border_fill_color = "#f1f1f1"
+    script1, div1 = components(p)
+    if show_plot:
+        show(p)
+
+    tooltip_format = [
+        ("Energy (eV)", "@Energy"),
+        ("Chi Squared", "@Chi_Squared"),
+        ("Dataset ID", "@Dataset_Number"),
+        ("Year", "@Year"),
+        ("Author", "@Author")
+    ]
+
+    p = figure(width=600, height=250, y_range=(chi_y_lower_bound, chi_y_upper_bound),
+               x_range=(x_lower_bound, x_upper_bound),
+               y_axis_type="log",
+               tools="pan,wheel_zoom,box_zoom,reset,hover",
+               x_axis_type="log", sizing_mode="scale_both", tooltips=tooltip_format)
+    color_map2 = CategoricalColorMapper(factors=reaction.data['Dataset_Number'].unique(),
+                                        palette=palette)
+    source2 = ColumnDataSource(reaction_data)
+    p.scatter('Energy', "Chi_Squared", size=3,
+              source=source2,
+              color={'field': 'Dataset_Number', 'transform': color_map2})
+    p.xaxis[0].axis_label = 'Energy (eV)'
+    p.yaxis[0].axis_label = 'Chi Squared'
+    p.border_fill_color = "#f1f1f1"
+    script2, div2 = components(p)
+
+    if show_plot:
+        show(p)
+    return script1 + script2, div1 + div2
+
