@@ -1,5 +1,5 @@
 from nugrade.nuclide import _sort_channel_energy
-from nugrade.calc_eval_precision import calc_eval_precision
+from nugrade.calc_relative_error import calc_relative_error
 from nugrade import *
 import pandas as pd
 import unittest
@@ -16,9 +16,10 @@ class TestEvalPrecision(unittest.TestCase):
         measurement_xs = [10.74586084,10.19679834,8.563365388,7.372048194,6.121897047,6.656013592,6.863630273,7.234623,7.449609001,7.576228268,6.273958192,6.943485546,6.647939571,4.782623101,4.601171194,5.853057948,5.874445479,4.586499241,4.76140639,4.424777994,4.595587182,5.400831883,3.593203017,5.166918344,4.875438581,4.583990846,3.510275789,3.169097122,3.972622588,4.155544717,4.245912232,3.194247828,4.333128685,3.134886569,4.219465847,3.544728872,3.306041221,3.428497677,3.748657454,3.751726685,2.965809828,3.468397716,3.511347273,2.928786983,3.421485518,3.205610492,2.424477586,3.216676727,2.685661226,3.278911002]
         measurement_data = {'Energy': measurement_energy, 'Data': measurement_xs}
         measurement_df = pd.DataFrame(measurement_data)
-        nugrade_precision = round(calc_eval_precision(measurement_df, evaluation_energy, evaluation_xs, lower_energy,
-                                                      upper_energy), 3)
-        self.assertEqual(nugrade_precision, 11.230)
+        average_relative_error, energy, relative_error = calc_relative_error(measurement_df, evaluation_energy,
+                                                                             evaluation_xs, lower_energy, upper_energy)
+        average_relative_error = round(average_relative_error,3)
+        self.assertEqual(average_relative_error, 11.656)
 
         # Test previously-calculated case for consistency
         # TODO: Manually calculate energy coverage for this case
@@ -33,7 +34,7 @@ class TestEvalPrecision(unittest.TestCase):
         options.required_reaction_channels = [1]
         test_isotope = "7Li"
         test_metric = grade_isotope(exfor_data, test_isotope, options)
-        self.assertEqual(round(test_metric.SIG_measurements['(N,TOT)'].eval_precision, 3), 20.473)
+        self.assertEqual(round(test_metric.SIG_measurements['(N,TOT)'].eval_precision, 3), 317.092)
 
 
 if __name__ == '__main__':
