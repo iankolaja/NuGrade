@@ -4,7 +4,7 @@ import unittest
 
 
 class TestEvalPrecision(unittest.TestCase):
-    def test_relative_uncertainty(self):
+    def test_relative_error(self):
         options = MetricOptions()
         options.set_neutrons()
         test_isotope = "7Li"
