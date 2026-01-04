@@ -8,6 +8,7 @@ class MetricOptions:
         self.scored_channel = 'N,TOT'
         self.scored_metric = "relative_error"
         self.projectile = "n"
+        self.energy_coverage_scale = "linear"
         self.user_defined = False
         self.weighting_function = None
         self.mode = None
@@ -26,23 +27,23 @@ class MetricOptions:
         return opt_dict
 
     def set_neutrons(self):
-        self.lower_energy = 0.0
+        self.lower_energy = 0.01
         self.upper_energy = 5.0E6
-        self.energy_width = 1000
-        self.evaluation = "endfb8.0"
-        self.required_reaction_channels = [(1, 'N,TOT'), (2, 'N,EL')]#, (3 'N,INL'), (102, 'N,G')]
+        self.energy_width = 0.01
+        self.evaluation = "endf8"
+        self.required_reaction_channels = [(1, 'N,TOT')]#, (2, 'N,EL')]#, (3 'N,INL'), (102, 'N,G')]
         self.projectile = "n"
         self.user_defined = False
-        self.scored_metric = "relative_error"
+        self.scored_metric = "chi_squared"
         self.weighting_function = None
         self.mode = "reactor_physics"
 
 
     def set_protons(self):
-        self.lower_energy = 0.0
+        self.lower_energy = 0.01
         self.upper_energy = 5.0E6
-        self.energy_width = 1000
-        self.evaluation = "endfb8.0"
+        self.energy_width = 0.01
+        self.evaluation = "endf8"
         self.projectile = "p"
         self.required_reaction_channels = [(2, 'P,EL'), (3, 'P,INL')]
         self.scored_channel = 'p,el'
