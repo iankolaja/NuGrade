@@ -50,9 +50,9 @@ def generate_neutrons():
         print("Failed to access form evaluation-lib")
         evaluation_response = None
     if evaluation_response == 1 or evaluation_response is None:
-        options.evaluation = "endfb8.0"
+        options.evaluation = "endf8"
     if evaluation_response == 2:
-        options.evaluation = "jeff3.3"
+        options.evaluation = "endf7-1"
 
     try:
         scored_response = request.form['scored-metric']
@@ -60,7 +60,7 @@ def generate_neutrons():
         print("Failed to access form scored-metric")
         scored_response = None
     if scored_response == 1 or scored_response is None:
-        options.scored_metric = "chi-squared"
+        options.scored_metric = "chi_squared"
     if scored_response == 2:
         options.evaluation = "relative_error"
 
@@ -111,7 +111,7 @@ def generate_protons():
     if evaluation_response == 1 or evaluation_response is None:
         options.evaluation = "endf8"
     if evaluation_response == 2:
-        options.evaluation = "endf7_1"
+        options.evaluation = "endf7-1"
 
     try:
         scored_response = request.form['scored-metric']
@@ -119,7 +119,7 @@ def generate_protons():
         print("Failed to access form scored-metric")
         scored_response = None
     if scored_response == 1 or scored_response is None:
-        options.scored_metric = "chi-squared"
+        options.scored_metric = "chi_squared"
     if scored_response == 2:
         options.evaluation = "relative_error"
 
