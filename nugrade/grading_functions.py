@@ -14,12 +14,12 @@ def grade_isotope(Z, A, symbol, options):
 
 
 def grade_many_isotopes(options):
-    all_isotopes = pd.read_csv("data/isotope_directory.csv")
+    all_isotopes = pd.read_csv("data/all_reactions.csv")
     metrics = {}
     for index, row in all_isotopes.iterrows():
-        z_val = row[0]
-        a_val = row[1]
-        symbol = row[2]
+        z_val = row["Z"]
+        a_val = row["A"]
+        symbol = row["Symbol"]
         if symbol == "Heavy Water" or symbol == "n" or a_val == 0:
             continue
         isotope = str(a_val)+symbol
