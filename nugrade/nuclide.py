@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 import re
-from .config import NUC_DAT_PATH
+from .config import NUGRADE_DATA_PATH
 from .calc_energy_coverage import calc_energy_coverage
 from bokeh.models import ColumnDataSource, CategoricalColorMapper
 from bokeh.plotting import figure, show
@@ -19,6 +19,7 @@ class Reaction:
         self.average_absolute_relative_error = np.float32(0.0)
         self.score = 0.0
         self.num_measurements = np.int32(1)
+        self.num_datapoints = np.int32(1)
         self.mt = mt
         self.data = pd.DataFrame()
         self.name = reaction_name
@@ -35,33 +36,50 @@ class Reaction:
     def calc_metrics(self, options):
         channel_data = self.data[self.data['Energy'].between(options.lower_energy, options.upper_energy)]
         self.energy_coverage = calc_energy_coverage(channel_data, options)
-        #self.energy_coverage_with_unc = calc_energy_coverage(channel_data, options)
-        self.average_absolute_relative_error = np.nanmean(np.abs(channel_data[options.evaluation + '_relative_error']))
-        self.average_chi_squared_per_degree = np.nanmean(np.abs(channel_data[options.evaluation+'_chi_squared']))
-        self.scored_metric = channel_data[f"{options.evaluation}_{options.scored_metric}"]
-        if options.weighting_function is "maxwell-boltzmann-room-temp":
+        eval_metric_str = f"{options.evaluation}_{options.scored_metric}"
+        all_experiments = channel_data[["EXFOR_Entry", "Author"]].drop_duplicates()
+        experiment_wise_metrics_weighted_means = []
+        experiment_energy_coverage_values = []
+
+        if options.weighting_function == "maxwell-boltzmann-room-temp":
             kT = 8.6173033E-5 * 293.61 # (eV/K) Boltzmann constant times room temp (K)
             mass = 1.674E-27
             weighting_function = lambda energy : np.sqrt(2*energy/mass)*(2*np.pi*np.sqrt(energy)) / (np.pi*kT)**(3/2) * np.exp(-energy/kT)
             normalizing_constant = weighting_function(kT)
-        if options.weighting_function is "maxwell-boltzmann-320C":
+        if options.weighting_function == "maxwell-boltzmann-320C":
             kT = 8.6173033E-5 * 593 # (eV/K) Boltzmann constant times room temp (K)
             normalizing_constant = weighting_function(kT)
             mass = 1.674E-27
             weighting_function = lambda energy : np.sqrt(2*energy/mass)*(2*np.pi*np.sqrt(energy)) / (np.pi*kT)**(3/2) * np.exp(-energy/kT)
-        if options.weighting_function is "watt":
+        if options.weighting_function == "watt":
             a = 0.453
             b = 1.036
             c = 2.29
             weighting_function = lambda energy : a*np.exp(-b*energy/1E6)*np.sinh(np.sqrt(c*energy/1E6))
             normalizing_constant = weighting_function(7.23803E5)
-        if options.weighting_function is not None:
-            try:
-                self.scored_metric = weighting_function(channel_data['Energy'])*self.scored_metric/normalizing_constant
-            except:
-                print("Invalid distribution provided.")
+        else:
+            weighting_function = lambda energy: 1
+
+
+        # Compute everything per experiment
+        for index, row in all_experiments.iterrows():
+            experiment_data = channel_data[channel_data["EXFOR_Entry"] == row["EXFOR_Entry"]]
+            experiment_wise_metric = weighting_function(experiment_data['Energy']) * experiment_data[eval_metric_str]
+            experiment_wise_metric_mean = np.nanmean(np.abs(experiment_wise_metric))
+            experiment_energy_coverage = calc_energy_coverage(experiment_data, options)
+            experiment_wise_metrics_weighted_means += [experiment_energy_coverage*experiment_wise_metric_mean]
+            experiment_energy_coverage_values += [experiment_energy_coverage]
+
+        total_metric_average = np.sum(experiment_wise_metrics_weighted_means)/np.sum(experiment_energy_coverage_values)
+
+        self.metric_data = channel_data[eval_metric_str]
+        self.experiment_results = all_experiments
+        self.experiment_results["metric_mean"] = experiment_wise_metrics_weighted_means
+        self.experiment_results["energy_coverage"] = experiment_energy_coverage_values
+
         self.num_measurements = len(pd.unique(self.data["Dataset_Number"]))
-        self.score = self.energy_coverage/np.nanmean(self.scored_metric)
+        self.num_datapoints = len(self.data["Dataset_Number"])
+        self.score = self.energy_coverage/total_metric_average
 
 
 class Nuclide:
@@ -127,7 +145,7 @@ class Nuclide:
             reaction_name = reaction_codes[1]
             self.reactions[reaction_name] = Reaction(mt, reaction_name)
             data_file = f"{options.projectile}_{self.Z}_{self.A}_{reaction_name}.csv"
-            data_path = os.path.join(NUC_DAT_PATH, data_file)
+            data_path = os.path.join(NUGRADE_DATA_PATH, data_file)
             channel_data = self.reactions[reaction_name].load_data(data_path)
             if len(channel_data) > 0:
                 self.reactions[reaction_name].data = channel_data
