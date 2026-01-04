@@ -38,7 +38,7 @@ setup(
     keywords="nuclear, data, exfor, endf, evaluated",  # Optional
     packages=find_packages(exclude=["tests"]),  # Required
     python_requires=">=3.7, <4",
-    install_requires=["numpy", "pandas", "matplotlib"],  # Optional
+    install_requires=["numpy", "pandas", "matplotlib", "bokeh"],  # Optional
     extras_require={  # Optional
         "dev": ["check-manifest"],
         "test": ["coverage"],
