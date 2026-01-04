@@ -8,6 +8,7 @@ from bokeh.models import ColumnDataSource, CategoricalColorMapper
 from bokeh.plotting import figure, show
 from bokeh.embed import components
 from bokeh.palettes import inferno
+from nugrade.weighting_functions import maxwell_boltzmann_room_temp, maxwell_boltzmann_320C, watt, constant_flux
 
 
 
@@ -42,23 +43,14 @@ class Reaction:
         experiment_energy_coverage_values = []
 
         if options.weighting_function == "maxwell-boltzmann-room-temp":
-            kT = 8.6173033E-5 * 293.61 # (eV/K) Boltzmann constant times room temp (K)
-            mass = 1.674E-27
-            weighting_function = lambda energy : np.sqrt(2*energy/mass)*(2*np.pi*np.sqrt(energy)) / (np.pi*kT)**(3/2) * np.exp(-energy/kT)
-            normalizing_constant = weighting_function(kT)
-        if options.weighting_function == "maxwell-boltzmann-320C":
-            kT = 8.6173033E-5 * 593 # (eV/K) Boltzmann constant times room temp (K)
-            normalizing_constant = weighting_function(kT)
-            mass = 1.674E-27
-            weighting_function = lambda energy : np.sqrt(2*energy/mass)*(2*np.pi*np.sqrt(energy)) / (np.pi*kT)**(3/2) * np.exp(-energy/kT)
-        if options.weighting_function == "watt":
-            a = 0.453
-            b = 1.036
-            c = 2.29
-            weighting_function = lambda energy : a*np.exp(-b*energy/1E6)*np.sinh(np.sqrt(c*energy/1E6))
-            normalizing_constant = weighting_function(7.23803E5)
+            weighting_function = maxwell_boltzmann_room_temp
+        elif options.weighting_function == "maxwell-boltzmann-320C":
+            weighting_function = maxwell_boltzmann_320C
+        elif options.weighting_function == "watt":
+            weighting_function = watt
         else:
-            weighting_function = lambda energy: 1
+            weighting_function = constant_flux
+        normalizing_constant = weighting_function(0, normalize=True)
 
 
         # Compute everything per experiment
