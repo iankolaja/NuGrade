@@ -11,7 +11,7 @@
 <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.1.0.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.1.0.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.1.0.min.js" crossorigin="anonymous"></script>
-
+<link rel="stylesheet" href="./static/home.css">
 
 <!-- Favicon -->
 <link rel="apple-touch-icon" sizes="57x57" href="./favicon/apple-icon-57x57.png">
@@ -62,14 +62,24 @@
 	</div>
 
 
-	<div class="w3-row">
+	<div class="w3-row" style="width:100%; max-width:1920px;">
 		<div class="w3-col m7 l8">
 
-			<div class="content w3-padding">
+			<div class="content w3-padding" style="position:relative;">
 				{% block content %}
 				{{ plot_script | safe}}
 				{{ plot_component | safe}}
 				{% endblock %}
+
+				<div class ="w3-hide-small w3-hide-medium w3-padding options-report-float">
+				{{ options_text | safe}}
+				</div> 
+
+			
+			<div class ="w3-hide-large options-report-box w3-white w3-padding" style="width:100%;">
+			{{ options_text | safe}}
+			</div> 
+
 			</div>
 
 			<div class="w3-container w3-center w3-light-gray">
@@ -95,7 +105,7 @@
 			</div>
 
 		</div>
-		<div class="w3-col m5 l4" style="height:88%;overflow-y:scroll;">
+		<div class="w3-col m5 l4">
 			<div class="w3-bar w3-light-gray">
 				<a href="/neutrons"
 					class="w3-bar-item w3-hover-black w3-button {{'w3-dark-gray' if (options.projectile == 'n')}}">Neutrons</a>
@@ -108,28 +118,34 @@
 				</div>
 				{% block form %}{% endblock %}
 				<div class="w3-container w3-left-align">
+					<h4 class="w3-center">Energy Coverage Settings</h4>
 					<div class="w3-row-padding">
-						<label class="w3-label w3-half">Lower Energy (MeV)</label>
+						<label class="w3-label w3-half">Lower Energy (eV)</label>
 						<input class="w3-input w3-border w3-half" type="text" name="lower_energy"
-							placeholder="Lower bound (MeV)" value="{{ options['lower_energy']/1E6 }}">
+							placeholder="Lower bound (eV)" value="{{ options['lower_energy'] }}">
 					</div>
 					<div class="w3-row-padding">
-						<label class="w3-label w3-half">Upper Energy (MeV)</label>
+						<label class="w3-label w3-half">Upper Energy (eV)</label>
 						<input class="w3-input w3-border w3-half" type="text" name="upper_energy"
-							placeholder="Upper bound (MeV)" value="{{ options['upper_energy']/1E6 }}">
+							placeholder="Upper bound (eV)" value="{{ options['upper_energy'] }}">
 					</div>
 
+					<div class="w3-row-padding" style="height:29px;">
+						<label class="w3-label w3-half">Log Scale</label>
+						<input class="w3-check" style="top:2px;" name="energy_coverage_scale" type="checkbox">
+        			</div>
+
 					<div class="w3-row-padding">
-						<label class="w3-label w3-half">Energy Width Log(eV)</label>
+						<label class="w3-label w3-half">Width (eV or Log(eV))</label>
 						<input class="w3-input w3-border w3-half" type="text" name="energy_width"
 							placeholder="Energy width (eV)" value="{{ options['energy_width'] }}">
 					</div>
 
-
+					<h4 class="w3-center">Precision Settings</h4>
 
 					<div class="w3-row-padding">
 						<label class="w3-label w3-half">Metric</label>
-						<select class="w3-select w3-half" name="scored-metric">
+						<select class="w3-select w3-half" style="height:29px;" name="scored-metric">
 							<option value="" disabled selected>Scored Metric</option>
 							<option value="1" selected="selected">Averaged Chi Squared</option>
 							<option value="2">Relative Error</option>
@@ -138,7 +154,7 @@
 
 					<div class="w3-row-padding">
 						<label class="w3-label w3-half">Weighting</label>
-						<select class="w3-select w3-half" name="weighting-function">
+						<select class="w3-select w3-half"  style="height:29px;"  name="weighting-function">
 							<option value="" disabled selected>Weighting Function</option>
 							<option value="1" selected="selected">None</option>
 							<option value="2">Maxwell-Boltzmann at 20C</option>
@@ -146,6 +162,7 @@
 							<option value="4">Watt Spectrum</option>
 						</select>
 					</div>
+					
 
 
 
@@ -171,7 +188,7 @@
 						</div>
 					</span>
 				</div>
-				<div class="w3-container w3-card w3-padding w3-white" style="margin-top:10px;">
+				<div class="w3-container w3-card w3-padding w3-white" style="margin-top:10px;height:400px;overflow-y:scroll;">
 					{% autoescape false %}
 					{{ ai_output | safe}}
 					{% endautoescape %}
@@ -181,7 +198,7 @@
 
 		<!-- Footer -->
 		<footer class="w3-bar w3-black w3-card">
-			<div class="w3-bar w3-black w3-container w3-center w3-xlarge w3-hide-small" style="width=100%">
+			<div class="w3-bar w3-black w3-container w3-center w3-xlarge w3-hide-small" style="width:100%">
 			</div>
 			<div class="w3-bar w3-black w3-container w3-center w3-large w3-hide-large w3-hide-medium"
 				style="width=100%">
