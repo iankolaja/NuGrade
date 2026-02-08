@@ -2,10 +2,22 @@ from flask import Flask
 from flask import request
 from flask import render_template
 from nugrade import *
-
+import pandas as pd
+import os
+from anthropic import Anthropic
+from nugrade.ai_agent import NuclearDataAgent
+from markdown_it import MarkdownIt
 
 app = Flask(__name__)
 
+md = MarkdownIt(
+    "commonmark",
+    {
+        "html": False,
+        "linkify": True,
+        "typographer": True,
+    }
+)
 version = '0.0.1'
 options = MetricOptions()
 options.set_neutrons()
@@ -13,10 +25,41 @@ metrics = grade_many_isotopes(options)
 plot_script, plot_component = plot_grades(metrics, options)
 options_text = options.gen_html_description()
 text_report = ""
-ai_output = "Get a report for a specific nuclide to generate an AI summary."
 
 
-def render_for_particle(particle, options, version, text_report, plot_script, plot_component, ai_output, options_text):
+if os.path.isfile("keys/claude.txt"):
+    with open("keys/claude.txt","r") as f:
+        anthropic_api_key = f.read()
+    try:
+        claude_agent = NuclearDataAgent(api_key=anthropic_api_key)
+        ai_available = True
+    except:
+        print("Access to Claude failed. Is your key correct, and "+\
+            " are you connected to the internet?")
+        ai_available = False
+else:
+    print("No API key found in keys/claude.txt for Claude.")
+    ai_available = False
+
+if ai_available:
+    ai_chat_history = "Get a report for a specific nuclide to generate an AI summary."
+    print("Connected to Claude.")
+else:
+    print("AI overview will not be available.")
+    ai_chat_history = "Claude API access failed. AI summary not available."
+
+if ai_available:
+    chat_history = []
+    response, chat_history = claude_agent.chat("How good is the 35Cl cross section for MSFR design work?",conversation_history=chat_history,metrics=metrics, options=options)
+    print(response)
+    ai_chat_history = "<p class=\"user-message\"> How good is the 35Cl cross section for MSFR design work?</p>"
+    formatted_response = md.render(response)
+    ai_chat_history += f"<p class=\"agent-message\"> {formatted_response}</p>"
+
+
+
+
+def render_for_particle(particle, options, version, text_report, plot_script, plot_component, ai_chat_history, options_text):
     if particle == "n":
         template_extender = "neutrons.html"
     elif particle == "p":
@@ -27,13 +70,13 @@ def render_for_particle(particle, options, version, text_report, plot_script, pl
                                text_report=text_report,
                                plot_script=plot_script,
                                plot_component=plot_component,
-                               ai_output=ai_output,
+                               ai_chat_history=ai_chat_history,
                                options_text=options_text)
 
 @app.route('/')
 def index():
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output, options_text)
+                               text_report, plot_script, plot_component, ai_chat_history, options_text)
 
 
 
@@ -98,7 +141,7 @@ def generate_neutrons():
     metrics = grade_many_isotopes(options)
     plot_script, plot_component = plot_grades(metrics, options)
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output, options_text)
+                               text_report, plot_script, plot_component, ai_chat_history, options_text)
 
 
 @app.route('/generate_protons', methods=['POST'])
@@ -157,7 +200,7 @@ def generate_protons():
     metrics = grade_many_isotopes(options)
     plot_script, plot_component = plot_grades(metrics, options)
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output, options_text)
+                               text_report, plot_script, plot_component, ai_chat_history, options_text)
 
 
 @app.route('/neutrons')
@@ -165,27 +208,27 @@ def set_neutrons():
     options.set_neutrons()
     text_report = ""
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output, options_text)
+                               text_report, plot_script, plot_component, ai_chat_history, options_text)
 
 @app.route('/protons')
 def set_protons():
     options.set_protons()
     text_report = ""
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output, options_text)
+                               text_report, plot_script, plot_component, ai_chat_history, options_text)
 
 
 @app.route('/get_report', methods=['POST'])
 def get_report():
-    report_nuclide = str(request.form['report_nuclide'])
+    report_nuclide = nuclide_symbol_format(request.form['report_nuclide'])
     if report_nuclide in metrics.keys():
         nuclide_metric = metrics[report_nuclide]
         text_report = nuclide_metric.gen_report(options, for_web=True)
     else:
         text_report = "Nuclide not found."
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output, options_text)
+                               text_report, plot_script, plot_component, ai_chat_history, options_text)
 
 
 if __name__ == '__main__':
-    app.run(port=4000,debug=True)
+    app.run(port=4000,debug=False)
