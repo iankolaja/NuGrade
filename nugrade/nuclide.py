@@ -98,6 +98,7 @@ class Nuclide:
         report_s = ""
         if for_web:
             report_s += "<p>"
+        report_s += options.gen_html_description(do_html=False)
         report_s += "Nuclide: {0}{1}\n".format(self.A, self.symbol)
         report_s += "Number of datasets: {0}\n".format(self.num_datasets)
         report_s += "Reaction reports:\n"
@@ -123,8 +124,6 @@ class Nuclide:
                 plot = plot_precision_data(reaction, options.evaluation, show_plot=False)
                 reaction_s += plot[0]
                 reaction_s += plot[1]
-            else:
-                plot_precision_data(reaction, options.evaluation, show_plot=True)
             report_s += reaction_s
         return report_s
 
@@ -143,6 +142,7 @@ class Nuclide:
                 self.reactions[reaction_name].data = channel_data
                 self.reactions[reaction_name].calc_metrics(options)
             self.num_datasets += self.reactions[reaction_name].num_measurements
+
 
 
 def plot_precision_data(reaction, evaluation_code, show_plot=False):
