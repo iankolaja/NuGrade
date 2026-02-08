@@ -11,40 +11,37 @@ options = MetricOptions()
 options.set_neutrons()
 metrics = grade_many_isotopes(options)
 plot_script, plot_component = plot_grades(metrics, options)
+options_text = options.gen_html_description()
 text_report = ""
 ai_output = "Get a report for a specific nuclide to generate an AI summary."
 
 
-def render_for_particle(particle, options, version, text_report, plot_script, plot_component, ai_output):
+def render_for_particle(particle, options, version, text_report, plot_script, plot_component, ai_output, options_text):
     if particle == "n":
-        return render_template("neutrons.html",
-                           options=options,
-                           version=version,
-                           text_report=text_report,
-                           plot_script=plot_script,
-                           plot_component=plot_component,
-                           ai_output=ai_output)
+        template_extender = "neutrons.html"
     elif particle == "p":
-        return render_template("protons.html",
+        template_extender = "protons.html"
+    return render_template(template_extender,
                                options=options,
                                version=version,
                                text_report=text_report,
                                plot_script=plot_script,
                                plot_component=plot_component,
-                               ai_output=ai_output)
+                               ai_output=ai_output,
+                               options_text=options_text)
 
 @app.route('/')
 def index():
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output)
+                               text_report, plot_script, plot_component, ai_output, options_text)
 
 
 
 
 @app.route('/generate_neutrons', methods=['POST'])
 def generate_neutrons():
-    options.lower_energy = float(request.form['lower_energy'])*1E6
-    options.upper_energy = float(request.form['upper_energy'])*1E6
+    options.lower_energy = float(request.form['lower_energy'])
+    options.upper_energy = float(request.form['upper_energy'])
     if request.form.get('energy_coverage_scale', False):
         options.energy_coverage_scale = "linear"
     else:
@@ -86,6 +83,7 @@ def generate_neutrons():
     if weighting_response == 4:
         options.weighting_function = "watt"
 
+    options.required_reaction_channels = []
     if request.form.get('n,tot', False):
         options.required_reaction_channels += [(1, 'N,TOT')]
     if request.form.get('n,el', False):
@@ -99,15 +97,14 @@ def generate_neutrons():
 
     metrics = grade_many_isotopes(options)
     plot_script, plot_component = plot_grades(metrics, options)
-    options.required_reaction_channels = []
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output)
+                               text_report, plot_script, plot_component, ai_output, options_text)
 
 
 @app.route('/generate_protons', methods=['POST'])
 def generate_protons():
-    options.lower_energy = float(request.form['lower_energy'])*1E6
-    options.upper_energy = float(request.form['upper_energy'])*1E6
+    options.lower_energy = float(request.form['lower_energy'])
+    options.upper_energy = float(request.form['upper_energy'])
     if request.form.get('energy_coverage_scale', False):
         options.energy_coverage_scale = "linear"
     else:
@@ -149,6 +146,7 @@ def generate_protons():
     if weighting_response == 4:
         options.weighting_function = "watt"
 
+    options.required_reaction_channels = []
     if request.form.get('p,el', False):
         options.required_reaction_channels += [(2, 'P,EL')]
     if request.form.get('p,inl', False):
@@ -158,9 +156,8 @@ def generate_protons():
 
     metrics = grade_many_isotopes(options)
     plot_script, plot_component = plot_grades(metrics, options)
-    options.required_reaction_channels = []
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output)
+                               text_report, plot_script, plot_component, ai_output, options_text)
 
 
 @app.route('/neutrons')
@@ -168,14 +165,14 @@ def set_neutrons():
     options.set_neutrons()
     text_report = ""
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output)
+                               text_report, plot_script, plot_component, ai_output, options_text)
 
 @app.route('/protons')
 def set_protons():
     options.set_protons()
     text_report = ""
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output)
+                               text_report, plot_script, plot_component, ai_output, options_text)
 
 
 @app.route('/get_report', methods=['POST'])
@@ -187,7 +184,7 @@ def get_report():
     else:
         text_report = "Nuclide not found."
     return render_for_particle(options.projectile, options, version,
-                               text_report, plot_script, plot_component, ai_output)
+                               text_report, plot_script, plot_component, ai_output, options_text)
 
 
 if __name__ == '__main__':
