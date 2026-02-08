@@ -1,11 +1,24 @@
 from .nuclide import Nuclide
-from bokeh.models import ColumnDataSource, LabelSet, CategoricalColorMapper
+from bokeh.models import ColumnDataSource, LabelSet, CategoricalColorMapper, Div
 from bokeh.plotting import figure, show
 from bokeh.embed import components
 from bokeh.palettes import inferno
+from bokeh.layouts import column
 import numpy as np
 import pandas as pd
+import re 
 
+def nuclide_symbol_format(input_nuclide):
+    input_str = str(input_nuclide).replace(" ","")
+    if "-" in input_str:
+        input_split = input_str.split("-")
+        symbol = input_split[0]
+        A = input_split[1]
+    else:
+        symbol = re.sub(r'[0-9]+', '', input_str) 
+        filtered_chars = filter(str.isdigit, input_str)
+        A = ''.join(filtered_chars)
+    return f"{A}{symbol.title()}"
 
 def grade_isotope(Z, A, symbol, options):
     nuc = Nuclide(int(Z), int(A), symbol)
