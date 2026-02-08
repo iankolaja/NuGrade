@@ -18,6 +18,7 @@ class MetricOptions:
         opt_dict['lower_energy'] = self.lower_energy
         opt_dict['upper_energy'] = self.upper_energy
         opt_dict['energy_width'] = self.energy_width
+        opt_dict['energy_coverage_scale'] = self.energy_coverage_scale
         opt_dict['evaluation'] = self.evaluation
         opt_dict['required_reaction_channels'] = self.required_reaction_channels
         opt_dict['user_defined'] = self.user_defined
@@ -29,6 +30,7 @@ class MetricOptions:
     def set_neutrons(self):
         self.lower_energy = 0.01
         self.upper_energy = 5.0E6
+        self.energy_coverage_scale = "linear"
         self.energy_width = 0.01
         self.evaluation = "endf8"
         self.required_reaction_channels = [(1, 'N,TOT')]#, (2, 'N,EL')]#, (3 'N,INL'), (102, 'N,G')]
@@ -43,6 +45,7 @@ class MetricOptions:
         self.lower_energy = 0.01
         self.upper_energy = 5.0E6
         self.energy_width = 0.01
+        self.energy_coverage_scale = "linear"
         self.evaluation = "endf8"
         self.projectile = "p"
         self.required_reaction_channels = [(2, 'P,EL'), (3, 'P,INL')]
