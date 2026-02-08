@@ -11,7 +11,6 @@
 <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.1.0.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.1.0.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.1.0.min.js" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="../css/nugrade.css">
 
 
 <!-- Favicon -->
@@ -150,7 +149,7 @@
 
 
 
-
+				{% block options %}{% endblock %}
 
 
 
@@ -162,20 +161,19 @@
 				</div>
 			</div>
 			</form>
-			<div class="w3-container w3-white w3-padding">
+			<div class="w3-container w3-padding"  style="background-color:#FF934F">
 				<div class="w3-container w3-center">
 					<h2>AI Summary</h2>
 					<span>
-						<h5>Enabled &nbsp<label class="switch">
-								<input type="checkbox">
-								<span class="slider round"></span>
-							</label></h5>
-					{% block options %}{% endblock %}
+						<div class="w3-row-padding">
+							<input class="w3-check" name="ai_enabled" type="checkbox" checked="checked">
+							<label>Enabled</label>
+						</div>
 					</span>
 				</div>
-				<div class="w3-container w3-card w3-padding" style="background-color:#FF934F;">
+				<div class="w3-container w3-card w3-padding w3-white" style="margin-top:10px;">
 					{% autoescape false %}
-					{{ ai_summary | safe}}
+					{{ ai_output | safe}}
 					{% endautoescape %}
 				</div>
 			</div>
@@ -190,8 +188,8 @@
 			</div>
 			<div class="w3-bar w3-black w3-container w3-center w3-tiny"
 				style="width=100%; margin-top: -5px; padding-bottom: 1px;">
-				<div class="w3-text-white w3-padding w3-medium">© 2022 Ian Kolaja | <a
-						href="mailto:iankolaja@gmail.com">Contact</a></div>
+				<div class="w3-text-white w3-padding w3-medium">© 2026 Ian Kolaja | <a
+						href="mailto:ikolaja@berkeley.edu">Contact</a></div>
 			</div>
 		</footer>
 	</div>
