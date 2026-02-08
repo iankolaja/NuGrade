@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<title>Nugrade v{{version}}</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.1.0.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-3.1.0.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-3.1.0.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.bokeh.org/bokeh/release/bokeh-gl-3.1.0.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.1.0.min.js" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="../css/nugrade.css">
+
+
+<!-- Favicon -->
+<link rel="apple-touch-icon" sizes="57x57" href="./favicon/apple-icon-57x57.png">
+<link rel="apple-touch-icon" sizes="60x60" href="./favicon/apple-icon-60x60.png">
+<link rel="apple-touch-icon" sizes="72x72" href="./favicon/apple-icon-72x72.png">
+<link rel="apple-touch-icon" sizes="76x76" href="./favicon/apple-icon-76x76.png">
+<link rel="apple-touch-icon" sizes="114x114" href="./favicon/apple-icon-114x114.png">
+<link rel="apple-touch-icon" sizes="120x120" href="./favicon/apple-icon-120x120.png">
+<link rel="apple-touch-icon" sizes="144x144" href="./favicon/apple-icon-144x144.png">
+<link rel="apple-touch-icon" sizes="152x152" href="./favicon/apple-icon-152x152.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./favicon/apple-icon-180x180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./favicon/android-icon-192x192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="96x96" href="./favicon/favicon-96x96.png">
+<link rel="icon" type="image/png" sizes="16x16" href="./favicon/favicon-16x16.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="msapplication-TileColor" content="#ffffff">
+<meta name="msapplication-TileImage" content="/ms-icon-144x144.png">
+<meta name="theme-color" content="#ffffff">
+<style>
+	body,
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		font-family: "Lato", sans-serif
+	}
+
+	body,
+	html {
+		height: 100%;
+		line-height: 1.8;
+	}
+
+	/* Full height image header */
+</style>
+
+<body>
+
+
+	<!-- Navbar (sit on top) -->
+	<div class="w3-bar w3-black w3-card" style="position: relative;">
+		<a class="w3-btn w3-hide-small w3-hide-medium" style="margin-top:6px;" height="28" />NuGrade v{{version}}</a>
+		<a class="w3-btn w3-hide-large w3-hide-small" style="margin-top:7px;" height="22" />NuGrade v{{version}}</a>
+		<a class="w3-btn w3-hide-large w3-hide-medium" style="margin-top:7px;" height="20" />NuGrade v{{version}}</a>
+	</div>
+
+
+	<div class="w3-row">
+		<div class="w3-col m7 l8">
+
+			<div class="content w3-padding">
+				{% block content %}
+				{{ plot_script | safe}}
+				{{ plot_component | safe}}
+				{% endblock %}
+			</div>
+
+			<div class="w3-container w3-center w3-light-gray">
+				<h2>Nuclide Results</h2>
+
+			</div>
+
+			<div class="w3-padding w3-bar w3-light-gray">
+				<form method="post" action="/get_report">
+					<input class="w3-input w3-border w3-center w3-bar-item w3-padding" type="text" name="report_nuclide"
+						placeholder="Nuclide" value="{{ report_nuclide }}" style="width:100px;">
+					<button type="submit" href="/get_report"
+						class="w3-light-blue w3-hover-pink w3-center w3-bar-item w3-button">Get Report</button>
+				</form>
+			</div>
+
+
+
+			<div class="w3-container w3-left-align w3-light-gray w3-padding" style="height:800px;overflow:scroll;">
+				{% autoescape false %}
+				{{ text_report | safe}}
+				{% endautoescape %}
+			</div>
+
+		</div>
+		<div class="w3-col m5 l4" style="height:88%;overflow-y:scroll;">
+			<div class="w3-bar w3-light-gray">
+				<a href="/neutrons"
+					class="w3-bar-item w3-hover-black w3-button {{'w3-dark-gray' if (options.projectile == 'n')}}">Neutrons</a>
+				<a href="/protons"
+					class="w3-bar-item w3-hover-black w3-button {{'w3-dark-gray' if (options.projectile == 'p')}}">Protons</a>
+			</div>
+			<div class="w3-container w3-light-blue w3-padding">
+				<div class="w3-container w3-center">
+					<h2>Metric Options</h2>
+				</div>
+				{% block form %}{% endblock %}
+				<div class="w3-container w3-left-align">
+					<div class="w3-row-padding">
+						<label class="w3-label w3-half">Lower Energy (MeV)</label>
+						<input class="w3-input w3-border w3-half" type="text" name="lower_energy"
+							placeholder="Lower bound (MeV)" value="{{ options['lower_energy']/1E6 }}">
+					</div>
+					<div class="w3-row-padding">
+						<label class="w3-label w3-half">Upper Energy (MeV)</label>
+						<input class="w3-input w3-border w3-half" type="text" name="upper_energy"
+							placeholder="Upper bound (MeV)" value="{{ options['upper_energy']/1E6 }}">
+					</div>
+
+					<div class="w3-row-padding">
+						<label class="w3-label w3-half">Energy Width Log(eV)</label>
+						<input class="w3-input w3-border w3-half" type="text" name="energy_width"
+							placeholder="Energy width (eV)" value="{{ options['energy_width'] }}">
+					</div>
+
+
+
+					<div class="w3-row-padding">
+						<label class="w3-label w3-half">Metric</label>
+						<select class="w3-select w3-half" name="scored-metric">
+							<option value="" disabled selected>Scored Metric</option>
+							<option value="1" selected="selected">Averaged Chi Squared</option>
+							<option value="2">Relative Error</option>
+						</select>
+					</div>
+
+					<div class="w3-row-padding">
+						<label class="w3-label w3-half">Weighting</label>
+						<select class="w3-select w3-half" name="weighting-function">
+							<option value="" disabled selected>Weighting Function</option>
+							<option value="1" selected="selected">None</option>
+							<option value="2">Maxwell-Boltzmann at 20C</option>
+							<option value="3">Maxwell-Boltzmann at 320C</option>
+							<option value="4">Watt Spectrum</option>
+						</select>
+					</div>
+
+
+
+
+
+
+
+				</div>
+
+				<div class="w3-center w3-padding">
+					<button type="submit" href="/generate"
+						class="w3-light-gray w3-hover-pink w3-center w3-button">Generate</button>
+				</div>
+			</div>
+			</form>
+			<div class="w3-container w3-white w3-padding">
+				<div class="w3-container w3-center">
+					<h2>AI Summary</h2>
+					<span>
+						<h5>Enabled &nbsp<label class="switch">
+								<input type="checkbox">
+								<span class="slider round"></span>
+							</label></h5>
+					{% block options %}{% endblock %}
+					</span>
+				</div>
+				<div class="w3-container w3-card w3-padding" style="background-color:#FF934F;">
+					{% autoescape false %}
+					{{ ai_summary | safe}}
+					{% endautoescape %}
+				</div>
+			</div>
+		</div>
+
+		<!-- Footer -->
+		<footer class="w3-bar w3-black w3-card">
+			<div class="w3-bar w3-black w3-container w3-center w3-xlarge w3-hide-small" style="width=100%">
+			</div>
+			<div class="w3-bar w3-black w3-container w3-center w3-large w3-hide-large w3-hide-medium"
+				style="width=100%">
+			</div>
+			<div class="w3-bar w3-black w3-container w3-center w3-tiny"
+				style="width=100%; margin-top: -5px; padding-bottom: 1px;">
+				<div class="w3-text-white w3-padding w3-medium">© 2022 Ian Kolaja | <a
+						href="mailto:iankolaja@gmail.com">Contact</a></div>
+			</div>
+		</footer>
+	</div>
+
+
+</body>
+
+</html>

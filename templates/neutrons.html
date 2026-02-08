@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block form %}
+<form method="post" action="/generate_neutrons">
+{% endblock %}
+
+{% block options %}
+
+    <div class="w3-row-padding">
+        <label class="w3-label w3-half">Evaluation</label>
+        <select class="w3-select w3-half" name="evaluation-lib">
+          <option value="" disabled selected>Evaluation</option>
+          <option value="1" selected="selected">ENDF/B-VIII.0</option>
+          <option value="2">ENDF/B-VII.1</option>
+        </select>
+    </div>
+
+    <h4 class="w3-center">Evaluated Reaction Channels</h4>
+
+    <span>Neutrons</span>
+        <div class="w3-row-padding">
+            <input class="w3-check" name="n,tot" type="checkbox" checked="checked">
+            <label>(n,tot)</label>
+        </div>
+        <div class="w3-row-padding">
+            <input class="w3-check" name="n,el" type="checkbox" >
+            <label>(n,el)</label>
+        </div>
+        <div class="w3-row-padding">
+            <input class="w3-check" name="n,inl" type="checkbox" >
+            <label>(n,inl)</label>
+        </div>
+        <div class="w3-row-padding">
+            <input class="w3-check" name="n,g" type="checkbox" >
+            <label>(n,g)</label>
+        </div>
+
+
+{% endblock %}
