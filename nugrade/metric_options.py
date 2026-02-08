@@ -1,3 +1,4 @@
+import numpy as np
 #TODO: Delete "Scored channel"
 class MetricOptions:
     def __init__(self):
@@ -24,7 +25,7 @@ class MetricOptions:
         opt_dict['weighting_function'] = self.weighting_function
         return opt_dict
     
-    def gen_html_description(self):
+    def gen_html_description(self, do_html=True):
         reactions_str = "("+self.required_reaction_channels[0][1]+")"
         for reaction in self.required_reaction_channels[1:]:
             reactions_str += f", ({reaction[1]})"
@@ -32,21 +33,30 @@ class MetricOptions:
         metric_text_dict = {"chi_squared": "Chi Squared",
                           "reltaive_error": "Relative Error"}
         metrics_str = metric_text_dict[self.scored_metric]
-
-        param_text = f"""
-        <b>Scoring Parameters</b><br>
-        Energy Range: {self.lower_energy} - {self.upper_energy} (eV)<br>
-        Energy Spacing: {self.energy_width} eV ({self.energy_coverage_scale})<br>
-        Evaluation: {self.evaluation}<br>
-        Error Function: {metrics_str}<br>
-        Reactions: {reactions_str}<br>
-        """
+        lower_energy_str = np.format_float_scientific(self.lower_energy, precision=4,exp_digits=1)
+        upper_energy_str = np.format_float_scientific(self.upper_energy, precision=4,exp_digits=1)
+        if do_html:
+            param_text = f"""
+            <p class=\"options-report-text\"><b>Scoring Parameters</b><br>
+            Energy Range: {lower_energy_str} - {upper_energy_str} (eV)<br>
+            Energy Spacing: {self.energy_width} eV ({self.energy_coverage_scale})<br>
+            Evaluation: {self.evaluation}<br>
+            Error Function: {metrics_str}<br>
+            Reactions: {reactions_str}<br></p>
+            """
+        else:
+            param_text = f"Scoring Parameters\n"+\
+            f"Energy Range: {lower_energy_str} - {upper_energy_str} (eV)\n"+\
+            f"Energy Spacing: {self.energy_width} eV ({self.energy_coverage_scale})\n"+\
+            f"Evaluation: {self.evaluation}\n"+\
+            f"Error Function: {metrics_str}\n"+\
+            f"Reactions: {reactions_str}\n"
         return param_text
 
     def set_neutrons(self):
         self.lower_energy = 0.01
         self.upper_energy = 5.0E6
-        self.energy_width = 0.01
+        self.energy_width = 100
         self.energy_coverage_scale = "linear"
         self.evaluation = "endf8"
         self.projectile = "n"
@@ -59,7 +69,7 @@ class MetricOptions:
     def set_protons(self):
         self.lower_energy = 0.01
         self.upper_energy = 5.0E6
-        self.energy_width = 0.01
+        self.energy_width = 100
         self.energy_coverage_scale = "linear"
         self.evaluation = "endf8"
         self.projectile = "p"
