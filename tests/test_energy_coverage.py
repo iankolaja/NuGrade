@@ -61,7 +61,6 @@ class TestEnergyCoverage(unittest.TestCase):
         options.evaluation = "endf8"
         options.required_reaction_channels = [(1, 'N,TOT')]
         options.projectile = "n"
-        options.user_defined = False
         options.scored_metric = "chi_squared"
         options.weighting_function = None
         options.mode = "reactor_physics"
