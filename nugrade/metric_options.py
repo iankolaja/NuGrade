@@ -10,7 +10,6 @@ class MetricOptions:
         self.scored_metric = ""
         self.projectile = ""
         self.energy_coverage_scale = "linear"
-        self.user_defined = False
         self.weighting_function = None
 
     def to_dict(self):
@@ -21,21 +20,38 @@ class MetricOptions:
         opt_dict['energy_coverage_scale'] = self.energy_coverage_scale
         opt_dict['evaluation'] = self.evaluation
         opt_dict['required_reaction_channels'] = self.required_reaction_channels
-        opt_dict['user_defined'] = self.user_defined
         opt_dict['scored_metric'] = self.scored_metric
         opt_dict['weighting_function'] = self.weighting_function
         return opt_dict
+    
+    def gen_html_description(self):
+        reactions_str = "("+self.required_reaction_channels[0][1]+")"
+        for reaction in self.required_reaction_channels[1:]:
+            reactions_str += f", ({reaction[1]})"
+
+        metric_text_dict = {"chi_squared": "Chi Squared",
+                          "reltaive_error": "Relative Error"}
+        metrics_str = metric_text_dict[self.scored_metric]
+
+        param_text = f"""
+        <b>Scoring Parameters</b><br>
+        Energy Range: {self.lower_energy} - {self.upper_energy} (eV)<br>
+        Energy Spacing: {self.energy_width} eV ({self.energy_coverage_scale})<br>
+        Evaluation: {self.evaluation}<br>
+        Error Function: {metrics_str}<br>
+        Reactions: {reactions_str}<br>
+        """
+        return param_text
 
     def set_neutrons(self):
-        self.lower_energy = 1.0E-08
+        self.lower_energy = 0.01
         self.upper_energy = 5.0E6
-        self.energy_coverage_scale = "linear"
         self.energy_width = 0.01
+        self.energy_coverage_scale = "linear"
         self.evaluation = "endf8"
-        self.scored_channel = 'N,TOT'
-        self.required_reaction_channels = [(1, 'N,TOT')]#, (2, 'N,EL')]#, (3 'N,INL'), (102, 'N,G')]
         self.projectile = "n"
-        self.user_defined = False
+        self.required_reaction_channels = [(1, 'N,TOT')]#, (2, 'N,EL')]#, (3 'N,INL'), (102, 'N,G')]
+        self.scored_channel = 'N,TOT'
         self.scored_metric = "chi_squared"
         self.weighting_function = None
 
@@ -48,8 +64,7 @@ class MetricOptions:
         self.evaluation = "endf8"
         self.projectile = "p"
         self.required_reaction_channels = [(2, 'P,EL'), (3, 'P,INL')]
-        self.scored_channel = 'p,el'
-        self.user_defined = False
+        self.scored_channel = 'P,EL'
         self.weighting_function = None
         self.scored_metric = "chi_squared"
 
