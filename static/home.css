@@ -1,0 +1,16 @@
+@charset "utf-8";
+/* CSS Document */
+
+.options-report-float {
+position:absolute;
+right:30px;
+bottom:30px;
+width:260px;
+background-color: white;    
+border: 1px solid #999;
+}
+
+.options-report-box {
+width:100%;
+background-color: white;
+}
