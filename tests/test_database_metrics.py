@@ -6,6 +6,9 @@ class TestDatabaseParsing(unittest.TestCase):
     def test_database_parsing(self):
         options = MetricOptions()
         options.set_neutrons()
+        options.evaluation = "endf8"
+        options.required_reaction_channels = [(1, 'N,TOT')]
+        options.projectile = "n"
         test_isotope = "7Li"
         test_Z = 3
         test_A = 7
