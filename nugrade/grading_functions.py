@@ -27,7 +27,8 @@ def grade_isotope(Z, A, symbol, options):
 
 
 def grade_many_isotopes(options):
-    all_isotopes = pd.read_csv("data/all_reactions.csv")
+    all_reactions = pd.read_csv("data/all_reactions.csv")
+    all_isotopes = all_reactions[["Z","A","Symbol"]].drop_duplicates()
     metrics = {}
     for index, row in all_isotopes.iterrows():
         z_val = row["Z"]
@@ -43,11 +44,13 @@ def grade_many_isotopes(options):
     return metrics
 
 
-def _get_rgb(fit, denominator_weight=0.2):
-    if fit == 0 or np.isnan(fit):
-        marker = (0.0, 0.0, 0.0, 1.0)
+def _get_rgb(score, q5, q95):
+    if np.isnan(score):
+        marker = (30.0, 0.0, 30.0, 1.0)
     else:
-        marker = (30, 255*fit/(fit+denominator_weight), 30)
+        percentile_norm = (score-q5)/(q95-q5)
+        scale = np.clip(percentile_norm,0,1)
+        marker = (30, 255*scale, 30)
     text = (225, 1-marker[1], 225, 1.0)
     return marker, text
 
@@ -55,55 +58,71 @@ def _get_rgb(fit, denominator_weight=0.2):
 def plot_grades(metrics, options, show_plot=False):
     n_vals = []
     z_vals = []
-    data_scores = []
+    score_values = []
+    score_labels = []
     nuclide_colors = []
     nuclide_labels = []
     energy_coverage_labels = []
-    average_absolute_relative_error_labels = []
+    metric_labels = []
+    metric_values = []
     text_colors = []
 
     for metric in metrics.values():
         N = metric.N
         Z = metric.Z
-        if options.scored_channel in metric.reactions.keys():
-            fit = metric.reactions[options.scored_channel].score
-            energy_coverage = "{0}%".format(np.round(
-                metric.reactions[options.scored_channel].energy_coverage,1))
-            average_absolute_relative_error = "{0}%".format(np.round(
-                metric.reactions[options.scored_channel].average_absolute_relative_error,1))
-        else:
-            fit = np.nan
-            energy_coverage = "0%"
-            average_absolute_relative_error = "N/A"
-        if np.isnan(fit):
-            data_scores += [0.0]
-            energy_coverage = "0%"
-            average_absolute_relative_error = "N/A"
-        else:
-            data_scores += [fit]
-        color_codes = _get_rgb(fit)
+
+        # If grading multiple reactions, average together the energy coverage,
+        # metric, and overall score for each reaction.
+        nuclide_score_list = []
+        nuclide_metric_list = []
+        nuclide_energy_coverage_list = []
+        for scored_channel in options.required_reaction_channels:
+            reaction_name = scored_channel[1]
+            reaction_score = metric.reactions[reaction_name].score
+            reaction_metric = metric.reactions[reaction_name].average_metric
+            reaction_energy_coverage = metric.reactions[reaction_name].energy_coverage
+
+            nuclide_score_list += [metric.reactions[reaction_name].score]
+            nuclide_metric_list += [reaction_metric]
+            nuclide_energy_coverage_list += [reaction_energy_coverage]
+
+        nuclide_mean_score = np.mean(nuclide_score_list)
+        nuclide_mean_metric = np.mean(nuclide_metric_list)
+        nuclide_mean_energy_coverage = np.mean(nuclide_energy_coverage_list)
         nuclide_text = str(metric.A) + metric.symbol
-        nuclide_rgb = color_codes[0]
-        text_rgb = color_codes[1]
 
         n_vals += [N]
         z_vals += [Z]
+
+        # Store values and prepare corresponding labels
+        nuclide_labels += [nuclide_text]
+        energy_coverage_labels += [str(round(nuclide_mean_energy_coverage,2))]
+
+        metric_values += [nuclide_mean_metric]
+        metric_labels += [str(round(nuclide_mean_metric,2))]
+
+        score_values += [nuclide_mean_score]
+        score_labels += [str(round(nuclide_mean_score,2))]
+
+    score_q05 = np.quantile(score_values, 0.05)
+    score_q95 = np.quantile(score_values, 0.95)
+    for i in range(len(score_values)):
+        color_codes = _get_rgb(score_values[i], score_q05, score_q95)
+        nuclide_rgb = color_codes[0]
+        text_rgb = color_codes[1]
         nuclide_colors += [nuclide_rgb]
         text_colors += [text_rgb]
-        nuclide_labels += [nuclide_text]
-        energy_coverage_labels += [energy_coverage]
-        average_absolute_relative_error_labels += [average_absolute_relative_error]
 
-    source = ColumnDataSource(data=dict(n_vals=n_vals, z_vals=z_vals, scores=data_scores, nuclide_colors=nuclide_colors,
+    source = ColumnDataSource(data=dict(n_vals=n_vals, z_vals=z_vals, scores=score_labels, nuclide_colors=nuclide_colors,
                                         text_colors=text_colors, nuclide_labels=nuclide_labels,
                                         energy_coverage=energy_coverage_labels,
-                                        average_absolute_relative_error=average_absolute_relative_error_labels))
+                                        metrics=metric_labels))
 
     tooltip_format = [
         ("Nuclide", "@nuclide_labels"),
-        ("Data Score", "@scores"),
+        ("Overall Score", "@scores"),
         ("Energy Coverage", "@energy_coverage"),
-        ("Relative Error", "@average_absolute_relative_error")
+        (options.get_metric_text(), "@metrics")
     ]
 
     labels = LabelSet(x='n_vals', y='z_vals', text='nuclide_labels', text_color='text_colors',
