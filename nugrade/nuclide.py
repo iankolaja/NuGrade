@@ -16,8 +16,7 @@ class Reaction:
     def __init__(self, mt,  reaction_name):
         self.energy_coverage = np.float32(0.0)
         self.energy_coverage_w_unc = np.float32(0.0)
-        self.average_chi_squared_per_degree = np.float32(0.0)
-        self.average_absolute_relative_error = np.float32(0.0)
+        self.average_metric = np.float32(0.0)
         self.score = 0.0
         self.num_measurements = np.int32(1)
         self.num_datapoints = np.int32(1)
@@ -35,13 +34,18 @@ class Reaction:
         return self.data
 
     def calc_metrics(self, options):
+        # Calculate overall energy coverage for this reaction channel
         channel_data = self.data[self.data['Energy'].between(options.lower_energy, options.upper_energy)]
+        channel_data_w_unc = channel_data[channel_data["dData"].notna()]
+        print(len(channel_data))
+        print(len(channel_data_w_unc))
         self.energy_coverage = calc_energy_coverage(channel_data, options)
-        eval_metric_str = f"{options.evaluation}_{options.scored_metric}"
-        all_experiments = channel_data[["EXFOR_Entry", "Author"]].drop_duplicates()
-        experiment_wise_metrics_weighted_means = []
-        experiment_energy_coverage_values = []
+        self.energy_coverage_w_unc = calc_energy_coverage(channel_data_w_unc, options)
 
+        # Get unique identifiers for all experiments
+        all_experiments = channel_data[["EXFOR_Entry", "Author"]].drop_duplicates()
+
+        # Assign the weighting function if using a flux spectrum
         if options.weighting_function == "maxwell-boltzmann-room-temp":
             weighting_function = maxwell_boltzmann_room_temp
         elif options.weighting_function == "maxwell-boltzmann-320C":
@@ -50,28 +54,56 @@ class Reaction:
             weighting_function = watt
         else:
             weighting_function = constant_flux
-        normalizing_constant = weighting_function(0, normalize=True)
+        
+        #normalizing_constant = weighting_function(0, normalize=True)
 
+        experiment_wise_metrics_weighted_means = []
+        experiment_energy_coverage_values = []
+        eval_metric_str = f"{options.evaluation}_{options.scored_metric}"
 
         # Compute everything per experiment
         for index, row in all_experiments.iterrows():
+
+            # Grab the data for just this experiment
             experiment_data = channel_data[channel_data["EXFOR_Entry"] == row["EXFOR_Entry"]]
+            if len(experiment_data.dropna()) == 0:
+                experiment_wise_metrics_weighted_means += [0.0]
+                experiment_energy_coverage_values += [0.0]
+                continue
+
+            # Calculate the error metric, energy coverage for this experiment
             experiment_wise_metric = weighting_function(experiment_data['Energy']) * experiment_data[eval_metric_str]
             experiment_wise_metric_mean = np.nanmean(np.abs(experiment_wise_metric))
             experiment_energy_coverage = calc_energy_coverage(experiment_data, options)
+
             experiment_wise_metrics_weighted_means += [experiment_energy_coverage*experiment_wise_metric_mean]
             experiment_energy_coverage_values += [experiment_energy_coverage]
-
-        total_metric_average = np.sum(experiment_wise_metrics_weighted_means)/np.sum(experiment_energy_coverage_values)
+        
+        # The error metric computed for each experiment, is weighted by 
+        # that experiment's relative energy coverage
+        experiment_energy_coverage_sum = np.sum(experiment_energy_coverage_values)
+        if experiment_energy_coverage_sum > 0.0:
+            experiment_energy_coverage_fractions = np.array(experiment_energy_coverage_values)/\
+                                                    experiment_energy_coverage_sum
+            total_metric_average = np.mean(np.array(experiment_wise_metrics_weighted_means) * \
+                                            experiment_energy_coverage_fractions)
+        else:
+            total_metric_average = 1.0
 
         self.metric_data = channel_data[eval_metric_str]
+
+        # Store results by experiment 
         self.experiment_results = all_experiments
         self.experiment_results["metric_mean"] = experiment_wise_metrics_weighted_means
         self.experiment_results["energy_coverage"] = experiment_energy_coverage_values
 
         self.num_measurements = len(pd.unique(self.data["Dataset_Number"]))
         self.num_datapoints = len(self.data["Dataset_Number"])
-        self.score = self.energy_coverage/total_metric_average
+        self.average_metric = total_metric_average
+        if options.scored_metric == "chi_squared":
+            self.score = self.energy_coverage * (1/(1+total_metric_average))
+        else:
+            self.score = self.energy_coverage * (1/(1+total_metric_average/100))
 
 
 class Nuclide:
@@ -106,22 +138,25 @@ class Nuclide:
             report_s += "</p>"
             report_s = report_s.replace('\n', '<br>')
             report_s = report_s.replace(' ', '&nbsp;')
+        metric_name = options.get_metric_text()
         for channel_name in self.reactions.keys():
             reaction = self.reactions[channel_name]
             reaction_s = ""
             if for_web:
                 reaction_s += "<p>"
-            reaction_s += "  ({0}) [MT = {1}]\n".format(reaction.name, reaction.mt)
-            reaction_s += "    Energy Completeness: {0}%\n".format(reaction.energy_coverage)
-            reaction_s += "    Energy Completeness with Uncertainty: {0}%\n".format(reaction.energy_coverage_w_unc)
-            reaction_s += "    Average absolute relative error: {0}%\n".format(reaction.average_absolute_relative_error)
-            reaction_s += "    Average Chi Squared Per Degree of Freedom: {0}\n".format(reaction.average_chi_squared_per_degree)
-            reaction_s += "    Overall score: {0}\n".format(reaction.score)
+            reaction_s += f"  ({reaction.name}) [MT = {reaction.mt}]\n"
+            reaction_s += f"    Energy Completeness: {round(reaction.energy_coverage,3)}%\n"
+            reaction_s += f"    Energy Completeness with Uncertainty: {round(reaction.energy_coverage_w_unc,3)}%\n"
+            reaction_s += f"    Average {metric_name}: {round(reaction.average_metric, 3)}\n"
+            reaction_s += f"    Overall score: {round(reaction.score,3)}\n"
             if for_web:
                 reaction_s += "</p>"
+                if len(reaction.data) > 0:
+                    plot = plot_precision_data(reaction, options.evaluation, show_plot=False)
+                else:
+                    reaction_s += "No data to plot.\n"
                 reaction_s = reaction_s.replace('\n', '<br>')
                 reaction_s = reaction_s.replace(' ', '&nbsp;')
-                plot = plot_precision_data(reaction, options.evaluation, show_plot=False)
                 reaction_s += plot[0]
                 reaction_s += plot[1]
             report_s += reaction_s
@@ -131,6 +166,7 @@ class Nuclide:
     def get_metrics(self, options):
         self.reactions = {}
         self.num_datasets = np.int16(0)
+        # Reset the reaction data and iterate over the reactions being graded
         for reaction_codes in options.required_reaction_channels:
             mt = reaction_codes[0]
             reaction_name = reaction_codes[1]
@@ -138,6 +174,8 @@ class Nuclide:
             data_file = f"{options.projectile}_{self.Z}_{self.A}_{reaction_name}.csv"
             data_path = os.path.join(NUGRADE_DATA_PATH, data_file)
             channel_data = self.reactions[reaction_name].load_data(data_path)
+            
+            # Calculate the error metrics and count measurements for each
             if len(channel_data) > 0:
                 self.reactions[reaction_name].data = channel_data
                 self.reactions[reaction_name].calc_metrics(options)
