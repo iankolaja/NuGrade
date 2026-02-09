@@ -64,9 +64,16 @@ background-color: white;
 }
 
 .user-message{
-    text-align: right;
     border: 1px;
     border-style: solid;
-    padding:2px;
-    background-color:#999;
+    padding:4px;
+    border-radius: 5px;
+    background-color:#87CEEB;
+    font-color:white;
+    width:400px;
+}
+
+.user-message-bubble{
+    display: flex;
+    justify-content: flex-end;
 }
