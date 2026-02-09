@@ -13,23 +13,33 @@
 <script src="https://cdn.bokeh.org/bokeh/release/bokeh-mathjax-3.1.0.min.js" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="./static/home.css">
 
-<!-- Favicon 
-<link rel="apple-touch-icon" sizes="57x57" href="./favicon/apple-icon-57x57.png">
-<link rel="apple-touch-icon" sizes="60x60" href="./favicon/apple-icon-60x60.png">
-<link rel="apple-touch-icon" sizes="72x72" href="./favicon/apple-icon-72x72.png">
-<link rel="apple-touch-icon" sizes="76x76" href="./favicon/apple-icon-76x76.png">
-<link rel="apple-touch-icon" sizes="114x114" href="./favicon/apple-icon-114x114.png">
-<link rel="apple-touch-icon" sizes="120x120" href="./favicon/apple-icon-120x120.png">
-<link rel="apple-touch-icon" sizes="144x144" href="./favicon/apple-icon-144x144.png">
-<link rel="apple-touch-icon" sizes="152x152" href="./favicon/apple-icon-152x152.png">
-<link rel="apple-touch-icon" sizes="180x180" href="./favicon/apple-icon-180x180.png">
-<link rel="icon" type="image/png" sizes="192x192" href="./favicon/android-icon-192x192.png">
-<link rel="icon" type="image/png" sizes="32x32" href="./favicon/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="96x96" href="./favicon/favicon-96x96.png">
-<link rel="icon" type="image/png" sizes="16x16" href="./favicon/favicon-16x16.png">
-<link rel="manifest" href="/manifest.json"> -->
+<link type="image/png" sizes="16x16" rel="icon" href="./static/favicon/icons8-atom-cloud-16.png">
+<link type="image/png" sizes="32x32" rel="icon" href="./static/favicon/icons8-atom-cloud-32.png">
+<link type="image/png" sizes="96x96" rel="icon" href="./static/favicon/icons8-atom-cloud-96.png">
+<link type="image/png" sizes="120x120" rel="icon" href="./static/favicon/icons8-atom-cloud-120.png">
+<link type="image/png" sizes="72x72" rel="icon" href="./static/favicon/icons8-atom-cloud-72.png">
+<link type="image/png" sizes="96x96" rel="icon" href="./static/favicon/icons8-atom-cloud-96.png">
+<link type="image/png" sizes="144x144" rel="icon" href="./static/favicon/icons8-atom-cloud-144.png">
+<link type="image/png" sizes="192x192" rel="icon" href="./static/favicon/icons8-atom-cloud-192.png">
+<link type="image/png" sizes="512x512" rel="icon" href="./static/favicon/icons8-atom-cloud-512.png">
+<link rel="apple-touch-icon" type="image/png" sizes="57x57" href="./static/favicon/icons8-atom-cloud-57.png">
+<link rel="apple-touch-icon" type="image/png" sizes="60x60" href="./static/favicon/icons8-atom-cloud-60.png">
+<link rel="apple-touch-icon" type="image/png" sizes="72x72" href="./static/favicon/icons8-atom-cloud-72.png">
+<link rel="apple-touch-icon" type="image/png" sizes="76x76" href="./static/favicon/icons8-atom-cloud-76.png">
+<link rel="apple-touch-icon" type="image/png" sizes="114x114" href="./static/favicon/icons8-atom-cloud-114.png">
+<link rel="apple-touch-icon" type="image/png" sizes="120x120" href="./static/favicon/icons8-atom-cloud-120.png">
+<link rel="apple-touch-icon" type="image/png" sizes="144x144" href="./static/favicon/icons8-atom-cloud-144.png">
+<link rel="apple-touch-icon" type="image/png" sizes="152x152" href="./static/favicon/icons8-atom-cloud-152.png">
+<link rel="apple-touch-icon" type="image/png" sizes="180x180" href="./static/favicon/icons8-atom-cloud-180.png">
+<link color="#26E07F" rel="mask-icon" href="./static/favicon/icons8-atom-cloud-100.svg">
+<meta name="msapplication-square70x70logo" content="./static/favicon/icons8-atom-cloud-70.png">
+<meta name="msapplication-TileImage" content="./static/favicon/icons8-atom-cloud-144.png">
+<meta name="msapplication-square150x150logo" content="./static/favicon/icons8-atom-cloud-150.png">
+<meta name="msapplication-square310x310logo" content="./static/favicon/icons8-atom-cloud-310.png">
+
+<link rel="manifest" href="./static/manifest.json">
 <meta name="msapplication-TileColor" content="#ffffff">
-<meta name="msapplication-TileImage" content="/ms-icon-144x144.png">
+<meta name="msapplication-TileImage" content="./static/favicon/icons8-atom-cloud-144.png">
 <meta name="theme-color" content="#ffffff">
 <style>
 	body,
@@ -56,9 +66,9 @@
 
 	<!-- Navbar (sit on top) -->
 	<div class="w3-bar w3-black w3-card" style="position: relative;">
-		<a class="w3-btn w3-hide-small w3-hide-medium" style="margin-top:6px;" height="28" />NuGrade v{{version}}</a>
-		<a class="w3-btn w3-hide-large w3-hide-small" style="margin-top:7px;" height="22" />NuGrade v{{version}}</a>
-		<a class="w3-btn w3-hide-large w3-hide-medium" style="margin-top:7px;" height="20" />NuGrade v{{version}}</a>
+		<a class="w3-btn w3-hide-small w3-hide-medium" href="/" style="margin-top:6px;" height="28" />NuGrade v{{version}}</a>
+		<a class="w3-btn w3-hide-large w3-hide-small" href="/" style="margin-top:7px;" height="22" />NuGrade v{{version}}</a>
+		<a class="w3-btn w3-hide-large w3-hide-medium" href="/" style="margin-top:7px;" height="20" />NuGrade v{{version}}</a>
 	</div>
 
 
@@ -109,7 +119,7 @@
 
 					<div class="w3-row-padding" style="height:29px;">
 						<label class="w3-label w3-half">Log Scale</label>
-						<input class="w3-check" style="top:2px;" name="energy_coverage_scale" type="checkbox">
+						<input class="w3-check" style="top:2px;" name="energy_coverage_scale" type="checkbox"  checked="checked">
 					</div>
 
 					<div class="w3-row-padding">
@@ -125,7 +135,7 @@
 						<select class="w3-select w3-half" style="height:29px;" name="scored-metric">
 							<option value="" disabled selected>Scored Metric</option>
 							<option value="1" selected="selected">Averaged Chi Squared</option>
-							<option value="2">Relative Error</option>
+							<option value="2">Absolute Relative Error</option>
 						</select>
 					</div>
 
@@ -160,7 +170,10 @@
 			<div class="w3-col m5 l6">
 				<div class="w3-container w3-padding" style="background-color:#FF934F">
 					<div class="w3-container w3-center">
-						<h2>AI Summary</h2>
+						<h2>Nuclear Data AI Agent</h2>
+						<h4>Powered by Claude (Sonnet 4.5)</h4>
+						<p>This agent can access the data NuGrade has access to. Claude can make mistakes; verify
+							important conclusions and that key data exists.</p>
 					</div>
 					<div class="w3-container w3-card w3-padding w3-white"
 						style="margin-top:10px;margin-bottom:10px;min-height:200px;max-height:800px;overflow-y:scroll;">
@@ -171,13 +184,14 @@
 				</div>
 			</div>
 
-			<div class="w3-col m7 l6">
-				<div class="w3-container w3-center w3-light-gray">
-					<h2>Nuclide Results</h2>
+			<div class="w3-col m7 l6 w3-light-gray">
+				<div class="w3-container w3-center">
+					<h2>Nuclide Lookup</h2>
+					<h4>Look up the data and results associated with a specific nucleus.</h4>
 
 				</div>
 
-				<div class="w3-padding w3-bar w3-light-gray">
+				<div class="w3-padding w3-bar">
 					<form method="post" action="/get_report">
 						<input class="w3-input w3-border w3-center w3-bar-item w3-padding" type="text"
 							name="report_nuclide" placeholder="Nuclide" value="{{ report_nuclide }}"
@@ -186,14 +200,16 @@
 							class="w3-light-blue w3-hover-pink w3-center w3-bar-item w3-button">Get Report</button>
 					</form>
 				</div>
-			</div>
 
+				<div class="w3-container w3-left-align w3-padding"
+					style="min-height:200px;max-height:800px;overflow:scroll;">
+					<div class="w3-white w3-padding">
+					{% autoescape false %}
+					{{ text_report | safe}}
+					{% endautoescape %}
+					</div>
+				</div>
 
-			<div class="w3-container w3-left-align w3-light-gray w3-padding"
-				style="min-height:200px;max-height:800px;overflow:scroll;">
-				{% autoescape false %}
-				{{ text_report | safe}}
-				{% endautoescape %}
 			</div>
 		</div>
 	</div>
