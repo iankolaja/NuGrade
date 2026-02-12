@@ -51,12 +51,12 @@ else:
 
 if ai_available:
     chat_history = []
-    #response, chat_history = claude_agent.chat("How good is the 35Cl cross section for MSFR design work?",conversation_history=chat_history,metrics=metrics, options=options)
-    #print(response)
-    ai_chat_history = "<div class=\"user-message-bubble\"><p class=\"user-message\"> How good is the 35Cl cross section for MSFR design work?</p></div>"
-    #formatted_response = md.render(response)
-    formatted_response = md.render("Here is some exmaple response text.")
-    ai_chat_history += f"<p class=\"agent-message\"> {formatted_response}</p>"
+    response, chat_history = claude_agent.chat("How good is the 7Li (N,G) cross section for FHR design work?",conversation_history=chat_history,metrics=metrics, options=options)
+    print(response)
+    ai_chat_history = "<div class=\"user-message-bubble\"><p class=\"user-message\"> How good is the 7Li (N,G) cross section for FHR design work?</p></div>"
+    formatted_response = md.render(response)
+    #formatted_response = md.render("Here is some exmaple response text.")
+    ai_chat_history += f"<p class=\"agent-message\"> {formatted_response}|safe </p>"
 
 
 
