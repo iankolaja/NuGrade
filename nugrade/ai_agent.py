@@ -61,7 +61,7 @@ class NuclearDataAgent:
             return self._get_nugrade_report(**tool_input, metrics=metrics, options=options)
     
     def _get_nuclear_data(self, nuclide, reaction_name, metrics):
-        """Accesses nuclear data for a given nuclide and reaction."""
+        """Accesses up to 500 points of nuclear cross section data for a given nuclide and reaction."""
         nuclide_clean = nuclide_symbol_format(nuclide)
         message = ""
         try:
@@ -80,7 +80,7 @@ class NuclearDataAgent:
 
     def _get_nugrade_report(self, nuclide, reaction_name, metrics, options):
         """Accesses NuGrade computed summary for a given nuclide and reaction including energy coverage, 
-        absolute relative error or chi squared, and number of experiments."""
+        absolute relative error or chi squared, and number of experiments. Good starting point."""
         message = ""
         try:
             nuclide_clean = nuclide_symbol_format(nuclide)
