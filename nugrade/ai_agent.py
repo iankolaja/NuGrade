@@ -64,19 +64,20 @@ class NuclearDataAgent:
         """Accesses up to 500 points of nuclear cross section data for a given nuclide and reaction."""
         nuclide_clean = nuclide_symbol_format(nuclide)
         message = ""
-        try:
+        if nuclide_clean in metrics.keys():
             full_data = metrics[nuclide_clean].reactions[reaction_name].data
-            filtered_data =  full_data.sort(by="endf8_relative_error")
+            filtered_data =  full_data.sort_values(by="endf8_relative_error")
             drop_columns = ['dEnergy', 'dData_assumed', 'MT', 'Dataset_Number', 'endf7-1_chi_squared', 
             'endf7-1_relative_error','endf8_relative_error', 'endf8_chi_squared']
             filtered_data = filtered_data.drop(columns=drop_columns).reset_index(drop=True)
-        except:
-            filtered_data = []
+            if len(filtered_data) > 500:
+                message += f"Data long ({len(filtered_data)} points. Truncating to 500 points with highest error. "
+                filtered_data = filtered_data.iloc[0:500]
+            data_str = filtered_data.to_csv()
+        else:
             message += f"{nuclide_clean} not found in data. "
-        if len(filtered_data) > 500:
-            message += f"Data long ({len(filtered_data)} points. Truncating to 500 points with highest error. "
-            filtered_data = filtered_data[0:500]
-        return filtered_data.to_csv() + f"\n{message}"
+            data_str = ""
+        return data_str + f"\n{message}"
 
     def _get_nugrade_report(self, nuclide, reaction_name, metrics, options):
         """Accesses NuGrade computed summary for a given nuclide and reaction including energy coverage, 
@@ -137,7 +138,7 @@ class NuclearDataAgent:
                 for tool_use in tool_uses:
                     
                     # Execute the tool
-                    tool_result, tool_message = self.execute_tool(
+                    tool_result = self.execute_tool(
                         tool_use.name, 
                         tool_use.input,
                         metrics=metrics,
