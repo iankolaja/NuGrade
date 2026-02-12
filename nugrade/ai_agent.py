@@ -76,7 +76,7 @@ class NuclearDataAgent:
         if len(filtered_data) > 500:
             message += f"Data long ({len(filtered_data)} points. Truncating to 500 points with highest error. "
             filtered_data = filtered_data[0:500]
-        return filtered_data.to_csv() += f"\n{message}"
+        return filtered_data.to_csv() + f"\n{message}"
 
     def _get_nugrade_report(self, nuclide, reaction_name, metrics, options):
         """Accesses NuGrade computed summary for a given nuclide and reaction including energy coverage, 
