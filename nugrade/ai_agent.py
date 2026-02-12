@@ -63,17 +63,36 @@ class NuclearDataAgent:
     def _get_nuclear_data(self, nuclide, reaction_name, metrics):
         """Accesses nuclear data for a given nuclide and reaction."""
         nuclide_clean = nuclide_symbol_format(nuclide)
-        return metrics[nuclide_clean].reactions[reaction_name].data.to_csv()
+        message = ""
+        try:
+            full_data = metrics[nuclide_clean].reactions[reaction_name].data
+            filtered_data =  full_data.sort(by="endf8_relative_error")
+            drop_columns = ['dEnergy', 'dData_assumed', 'MT', 'Dataset_Number', 'endf7-1_chi_squared', 
+            'endf7-1_relative_error','endf8_relative_error', 'endf8_chi_squared']
+            filtered_data = filtered_data.drop(columns=drop_columns).reset_index(drop=True)
+        except:
+            filtered_data = []
+            message += f"{nuclide_clean} not found in data. "
+        if len(filtered_data) > 500:
+            message += f"Data long ({len(filtered_data)} points. Truncating to 500 points with highest error. "
+            filtered_data = filtered_data[0:500]
+        return filtered_data.to_csv() += f"\n{message}"
 
     def _get_nugrade_report(self, nuclide, reaction_name, metrics, options):
-        """Accesses nuclear data for a given nuclide and reaction."""
-        nuclide_clean = nuclide_symbol_format(nuclide)
-        metric =  metrics[nuclide_clean]
-        report_text = metric.gen_report(options, for_web=False)
-        return report_text
+        """Accesses NuGrade computed summary for a given nuclide and reaction including energy coverage, 
+        absolute relative error or chi squared, and number of experiments."""
+        message = ""
+        try:
+            nuclide_clean = nuclide_symbol_format(nuclide)
+            metric =  metrics[nuclide_clean]
+            report_text = metric.gen_report(options, for_web=False)
+            message += "\nNugrade report access successful."
+        except:
+            message += "\nNugrade report access failed."
+        return report_text + message
     
     def _list_available_nuclides(self, metrics=None):
-        """Lists all available nuclides and reactions."""
+        """Lists all available nuclides and reactions. Only use this if a previous tool call has failed."""
         available_data_dict = {}
         nuclides = list(metrics.keys())
         for nuclide in nuclides:
@@ -118,7 +137,7 @@ class NuclearDataAgent:
                 for tool_use in tool_uses:
                     
                     # Execute the tool
-                    tool_result = self.execute_tool(
+                    tool_result, tool_message = self.execute_tool(
                         tool_use.name, 
                         tool_use.input,
                         metrics=metrics,
