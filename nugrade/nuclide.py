@@ -4,7 +4,7 @@ import os
 import re
 from .config import NUGRADE_DATA_PATH
 from .calc_energy_coverage import calc_energy_coverage
-from bokeh.models import ColumnDataSource, CategoricalColorMapper
+from bokeh.models import ColumnDataSource, CategoricalColorMapper, Whisker
 from bokeh.plotting import figure, show
 from bokeh.embed import components
 from bokeh.palettes import inferno
@@ -44,6 +44,7 @@ class Reaction:
 
         # Get unique identifiers for all experiments
         all_experiments = channel_data[["EXFOR_Entry", "Author"]].drop_duplicates()
+        relevant_experiments = []
 
         # Assign the weighting function if using a flux spectrum
         if options.weighting_function == "maxwell-boltzmann-room-temp":
@@ -70,6 +71,8 @@ class Reaction:
                 experiment_wise_metrics_weighted_means += [0.0]
                 experiment_energy_coverage_values += [0.0]
                 continue
+            #else:
+            #    relevant_experiments += [row]
 
             # Calculate the error metric, energy coverage for this experiment
             experiment_wise_metric = weighting_function(experiment_data['Energy']) * experiment_data[eval_metric_str]
@@ -94,9 +97,8 @@ class Reaction:
 
         # Store results by experiment 
         self.experiment_results = all_experiments
-        self.experiment_results["metric_mean"] = experiment_wise_metrics_weighted_means
+        self.experiment_results["avg_"+eval_metric_str] = experiment_wise_metrics_weighted_means
         self.experiment_results["energy_coverage"] = experiment_energy_coverage_values
-
         self.num_measurements = len(pd.unique(self.data["Dataset_Number"]))
         self.num_datapoints = len(self.data["Dataset_Number"])
         self.average_metric = total_metric_average
@@ -188,16 +190,73 @@ def plot_precision_data(reaction, evaluation_code, show_plot=False):
     evaluation_chi_column = evaluation_code + '_chi_squared'
     reaction_data = reaction.data.rename(columns={evaluation_error_column: "Relative_Error",
                                                   evaluation_chi_column: "Chi_Squared"})
-    x_lower_bound = np.min((1,np.min(reaction_data['Energy'])))
-    x_upper_bound = np.max((1000,np.max(reaction_data['Energy'])))
+    x_lower_bound = np.min((1,np.min(reaction_data['Energy'])))*0.95
+    x_upper_bound = np.max((1000,np.max(reaction_data['Energy'])))*1.05
+
+    data_y_lower_bound = np.max((1E-40, np.min(reaction_data["Data"])*0.1))
+    data_y_upper_bound = np.max((np.abs(reaction_data["Data"]))) * 1.05
+
     error_y_bound = np.max((np.abs(reaction_data["Relative_Error"]))) * 1.05
     chi_y_lower_bound = np.min((0.1, np.min(reaction_data["Chi_Squared"])))
     chi_y_upper_bound = np.max((1, np.max(reaction_data["Chi_Squared"])))* 1.05
 
-    # Relative Uncertainty Plot
+    reaction_data["Labeled_XS"] = (
+    reaction_data["Data"].map("{:.3e}".format)
+    + " ± "
+    + reaction_data["dData"].map("{:.3e}".format)
+)
+    reaction_data["XS_lower"] = reaction_data["Data"] - reaction_data["dData"]
+    reaction_data["XS_upper"] = reaction_data["Data"] + reaction_data["dData"]
+
+    # Value Plot
     source = ColumnDataSource(reaction_data)
     tooltip_format = [
         ("Energy (eV)", "@Energy"),
+        ("XS (b)", "@Labeled_XS"),
+        ("Dataset ID", "@Dataset_Number"),
+        ("Year", "@Year"),
+        ("Author", "@Author")
+    ]
+
+    p = figure(width=600, height=250, #y_range=(-data_y_lower_bound, data_y_upper_bound),
+               x_range=(x_lower_bound, x_upper_bound),
+               y_axis_type="log",
+               tools="pan,wheel_zoom,box_zoom,reset,hover",
+               x_axis_type="log", sizing_mode="scale_both", tooltips=tooltip_format)
+    palette = inferno(len(reaction.data['Dataset_Number'].unique()))
+    print(palette)
+    color_map = CategoricalColorMapper(factors=reaction.data['Dataset_Number'].unique(),
+                                       palette=palette)
+
+    
+    error_bars = Whisker(
+    source=source,
+    base="Energy",
+    upper="XS_upper",
+    lower="XS_lower"
+    )
+    error_bars.upper_head.size = 4
+    error_bars.lower_head.size = 4
+
+
+
+    p.scatter('Energy', "Data", size=3,
+              source=source,
+              color={'field': 'Dataset_Number', 'transform': color_map})
+    p.xaxis[0].axis_label = 'Energy (eV)'
+    p.yaxis[0].axis_label = 'EXFOR Cross Section (b)'
+    p.border_fill_color = "#f1f1f1"
+    p.add_layout(error_bars)
+    script1, div1 = components(p)
+    if show_plot:
+        show(p)
+
+
+    # Relative Uncertainty Plot
+    source2 = ColumnDataSource(reaction_data)
+    tooltip_format = [
+        ("Energy (eV)", "@Energy"),
+        ("XS (b)", "@Labeled_XS"),
         ("Relative Error (%)", "@Relative_Error"),
         ("Dataset ID", "@Dataset_Number"),
         ("Year", "@Year"),
@@ -212,18 +271,23 @@ def plot_precision_data(reaction, evaluation_code, show_plot=False):
     print(palette)
     color_map = CategoricalColorMapper(factors=reaction.data['Dataset_Number'].unique(),
                                        palette=palette)
+
+
     p.scatter('Energy', "Relative_Error", size=3,
-              source=source,
+              source=source2,
               color={'field': 'Dataset_Number', 'transform': color_map})
     p.xaxis[0].axis_label = 'Energy (eV)'
-    p.yaxis[0].axis_label = 'Relative Uncertainty (%)'
+    p.yaxis[0].axis_label = 'Relative Error (%)'
     p.border_fill_color = "#f1f1f1"
-    script1, div1 = components(p)
+    script2, div2 = components(p)
     if show_plot:
         show(p)
 
+
+    # Chi Squared Plot
     tooltip_format = [
         ("Energy (eV)", "@Energy"),
+        ("XS (b)", "@Labeled_XS"),
         ("Chi Squared", "@Chi_Squared"),
         ("Dataset ID", "@Dataset_Number"),
         ("Year", "@Year"),
@@ -237,16 +301,16 @@ def plot_precision_data(reaction, evaluation_code, show_plot=False):
                x_axis_type="log", sizing_mode="scale_both", tooltips=tooltip_format)
     color_map2 = CategoricalColorMapper(factors=reaction.data['Dataset_Number'].unique(),
                                         palette=palette)
-    source2 = ColumnDataSource(reaction_data)
+    source3 = ColumnDataSource(reaction_data)
     p.scatter('Energy', "Chi_Squared", size=3,
-              source=source2,
+              source=source3,
               color={'field': 'Dataset_Number', 'transform': color_map2})
     p.xaxis[0].axis_label = 'Energy (eV)'
     p.yaxis[0].axis_label = 'Chi Squared'
     p.border_fill_color = "#f1f1f1"
-    script2, div2 = components(p)
+    script3, div3 = components(p)
 
     if show_plot:
         show(p)
-    return script1 + script2, div1 + div2
+    return script1 + script2 + script3, div1 + div2 + div3
 
