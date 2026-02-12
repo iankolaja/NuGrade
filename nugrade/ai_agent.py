@@ -88,11 +88,11 @@ class NuclearDataAgent:
             report_text = metric.gen_report(options, for_web=False)
             message += "\nNugrade report access successful."
         except:
-            message += "\nNugrade report access failed."
+            message += "\nNugrade report access failed. Does the nuclide/reaction exist in NuGrade?"
         return report_text + message
     
     def _list_available_nuclides(self, metrics=None):
-        """Lists all available nuclides and reactions. Only use this if a previous tool call has failed."""
+        """Lists all available nuclides and reactions. You can assume the data exists, but use this if a other tool call fails."""
         available_data_dict = {}
         nuclides = list(metrics.keys())
         for nuclide in nuclides:
