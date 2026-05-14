@@ -37,7 +37,7 @@ class Reaction:
     def calc_metrics(self, options):
         # Calculate overall energy coverage for this reaction channel
         channel_data = self.data[self.data['Energy'].between(options.lower_energy, options.upper_energy)]
-        channel_data_w_unc = channel_data[channel_data["dData"].notna()]
+        channel_data_w_unc = channel_data[channel_data["dData_assumed"].notna()]
         print(len(channel_data))
         print(len(channel_data_w_unc))
         self.energy_coverage = calc_energy_coverage(channel_data, options)
@@ -205,7 +205,7 @@ def plot_precision_data(reaction, evaluation_code, show_plot=False):
     reaction_data["Labeled_XS"] = (
     reaction_data["Data"].map("{:.3e}".format)
     + " ± "
-    + reaction_data["dData"].map("{:.3e}".format)
+    + reaction_data["dData_assumed"].map("{:.3e}".format)
 )
     reaction_data["XS_lower"] = reaction_data["Data"] - reaction_data["dData"]
     reaction_data["XS_upper"] = reaction_data["Data"] + reaction_data["dData"]
@@ -215,6 +215,7 @@ def plot_precision_data(reaction, evaluation_code, show_plot=False):
     tooltip_format = [
         ("Energy (eV)", "@Energy"),
         ("XS (b)", "@Labeled_XS"),
+        ("Uncertainty Source", "@uncertainty_source"),
         ("Dataset ID", "@Dataset_Number"),
         ("Year", "@Year"),
         ("Author", "@Author")
