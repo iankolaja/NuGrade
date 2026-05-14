@@ -1,9 +1,11 @@
 from nugrade import *
 import unittest
+import sqlite3
 
 
 class TestDatabaseParsing(unittest.TestCase):
     def test_database_parsing(self):
+        sql_con = sqlite3.connect('data/test_data.db')
         options = MetricOptions()
         options.set_neutrons()
         options.evaluation = "endf8"
@@ -12,7 +14,7 @@ class TestDatabaseParsing(unittest.TestCase):
         test_isotope = "7Li"
         test_Z = 3
         test_A = 7
-        test_nuclide_metrics = grade_isotope(test_Z, test_A, test_isotope, options)
+        test_nuclide_metrics = grade_isotope(test_Z, test_A, test_isotope, options, sql_con)
 
         # Verify that all expected datasets were found
         found_num_datasets = test_nuclide_metrics.num_datasets
