@@ -2,6 +2,7 @@ from nugrade import *
 import unittest
 import pandas as pd
 from nugrade.calc_energy_coverage import calc_energy_coverage
+import sqlite3
 
 class TestEnergyCoverage(unittest.TestCase):
     def test_energy_coverage_linear(self):
@@ -44,6 +45,7 @@ class TestEnergyCoverage(unittest.TestCase):
             pass
 
     def test_energy_coverage_sort(self):
+        sql_con = sqlite3.connect('data/test_data.db')
         options = MetricOptions()
         options.set_neutrons()
 
@@ -56,7 +58,7 @@ class TestEnergyCoverage(unittest.TestCase):
         test_isotope = "7Li"
         test_Z = 3
         test_A = 7
-        test_nuclide_metrics = grade_isotope(test_Z, test_A, test_isotope, options)
+        test_nuclide_metrics = grade_isotope(test_Z, test_A, test_isotope, options, sql_con)
 
         options.evaluation = "endf8"
         options.required_reaction_channels = [(1, 'N,TOT')]
