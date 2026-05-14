@@ -29,7 +29,7 @@ class Reaction:
                              'dData': np.float64, 'dData_assumed': np.float64,
                              'EXFOR_Subentry': str,'EXFOR_Entry': str, 'Year': np.int16, 
                              'Author': str, 'Dataset_Number': str}
-        where_query = f"(\'{Z}\' = Z) AND (\'{A}\' = A) AND (\'{mt}\' = MT) AND (\'{proj}\' = Projectile)"
+        where_query = f"(Z = {Z}) AND (A = {A}) AND (MT = {mt}) AND (Projectile = '{proj}')"
         self.data = pd.read_sql(f'SELECT * FROM measurements WHERE {where_query}', 
                                 sql_con, dtype=data_file_columns)
         return self.data
