@@ -61,22 +61,25 @@ class NuclearDataAgent:
             return self._get_nugrade_report(**tool_input, metrics=metrics, options=options)
     
     def _get_nuclear_data(self, nuclide, reaction_name, metrics):
-        """Accesses up to 500 points of nuclear cross section data for a given nuclide and reaction."""
+        """Accesses experiment-wide metrics and up to 100 points of nuclear cross section data for a given nuclide and reaction."""
         nuclide_clean = nuclide_symbol_format(nuclide)
         message = ""
         if nuclide_clean in metrics.keys():
             full_data = metrics[nuclide_clean].reactions[reaction_name].data
+            experiment_data = metrics[nuclide_clean].reactions[reaction_name].experiment_results
             filtered_data =  full_data.sort_values(by="endf8_relative_error")
             drop_columns = ['dEnergy', 'dData_assumed', 'MT', 'Dataset_Number', 'endf7-1_chi_squared', 
             'endf7-1_relative_error','endf8_relative_error', 'endf8_chi_squared']
             filtered_data = filtered_data.drop(columns=drop_columns).reset_index(drop=True)
-            if len(filtered_data) > 500:
-                message += f"Data long ({len(filtered_data)} points. Truncating to 500 points with highest error. "
-                filtered_data = filtered_data.iloc[0:500]
+            if len(filtered_data) > 100:
+                message += f"Data long ({len(filtered_data)} points. Truncating to 100 points with highest error. "
+                filtered_data = filtered_data.iloc[0:100]
             data_str = filtered_data.to_csv()
+            data_str += "\n\nExperiments:\n"+experiment_data.to_csv()
         else:
             message += f"{nuclide_clean} not found in data. "
             data_str = ""
+        print(data_str)
         return data_str + f"\n{message}"
 
     def _get_nugrade_report(self, nuclide, reaction_name, metrics, options):
