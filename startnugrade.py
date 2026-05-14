@@ -7,6 +7,7 @@ import os
 from anthropic import Anthropic
 from nugrade.ai_agent import NuclearDataAgent
 from markdown_it import MarkdownIt
+import sqlite3
 
 app = Flask(__name__)
 
@@ -20,12 +21,14 @@ md = MarkdownIt(
 )
 
 version = '0.0.1'
+sql_con = sqlite3.connect('data/nugrade_data.db')
 options = MetricOptions()
 options.set_neutrons()
-metrics = grade_many_isotopes(options)
+metrics = grade_many_isotopes(options, sql_con)
 plot_script, plot_component = plot_grades(metrics, options)
 options_text = options.gen_html_description()
 text_report = ""
+
 
 
 if os.path.isfile("keys/claude.txt"):
