@@ -20,13 +20,13 @@ def nuclide_symbol_format(input_nuclide):
         A = ''.join(filtered_chars)
     return f"{A}{symbol.title()}"
 
-def grade_isotope(Z, A, symbol, options):
+def grade_isotope(Z, A, symbol, options, sql_con):
     nuc = Nuclide(int(Z), int(A), symbol)
-    nuc.get_metrics(options)
+    nuc.get_metrics(options, sql_con)
     return nuc
 
 
-def grade_many_isotopes(options):
+def grade_many_isotopes(options, sql_con):
     all_reactions = pd.read_csv("data/all_reactions.csv")
     all_isotopes = all_reactions[["Z","A","Symbol"]].drop_duplicates()
     metrics = {}
@@ -38,7 +38,7 @@ def grade_many_isotopes(options):
             continue
         isotope = str(a_val)+symbol
         print("Evaluating {0}...".format(isotope))
-        this_metric = grade_isotope(z_val, a_val, symbol, options)
+        this_metric = grade_isotope(z_val, a_val, symbol, options, sql_con)
         if len(this_metric.reactions.keys()) > 0:
             metrics[isotope] = this_metric
     return metrics

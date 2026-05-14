@@ -24,13 +24,14 @@ class Reaction:
         self.data = pd.DataFrame()
         self.name = reaction_name
 
-    def load_data(self, dataset_path):
-        data_file_columns = {'Energy': np.float64, 'dEnergy': np.float64, 'Data': np.float64, 'dData': np.float64,
-                             'EXFOR_Entry': str, 'Year': np.int16, 'Author': str, 'Dataset_Number': str}
-        try:
-            self.data = pd.read_csv(dataset_path, dtype=data_file_columns)
-        except FileNotFoundError:
-            self.data = pd.DataFrame()
+    def load_data(self, sql_con, proj, mt, Z, A):
+        data_file_columns = {'Energy': np.float64, 'dEnergy': np.float64, 'Data': np.float64, 
+                             'dData': np.float64, 'dData_assumed': np.float64,
+                             'EXFOR_Subentry': str,'EXFOR_Entry': str, 'Year': np.int16, 
+                             'Author': str, 'Dataset_Number': str}
+        where_query = f"(\'{Z}\' = Z) AND (\'{A}\' = A) AND (\'{mt}\' = MT) AND (\'{proj}\' = Projectile)"
+        self.data = pd.read_sql(f'SELECT * FROM measurements WHERE {where_query}', 
+                                sql_con, dtype=data_file_columns)
         return self.data
 
     def calc_metrics(self, options):
@@ -43,7 +44,7 @@ class Reaction:
         self.energy_coverage_w_unc = calc_energy_coverage(channel_data_w_unc, options)
 
         # Get unique identifiers for all experiments
-        all_experiments = channel_data[["EXFOR_Entry", "Author"]].drop_duplicates()
+        all_experiments = channel_data[["EXFOR_Subentry", "Author"]].drop_duplicates()
         relevant_experiments = []
 
         # Assign the weighting function if using a flux spectrum
@@ -66,7 +67,7 @@ class Reaction:
         for index, row in all_experiments.iterrows():
 
             # Grab the data for just this experiment
-            experiment_data = channel_data[channel_data["EXFOR_Entry"] == row["EXFOR_Entry"]]
+            experiment_data = channel_data[channel_data["EXFOR_Subentry"] == row["EXFOR_Subentry"]]
             if len(experiment_data.dropna()) == 0:
                 experiment_wise_metrics_weighted_means += [0.0]
                 experiment_energy_coverage_values += [0.0]
@@ -123,13 +124,13 @@ class Nuclide:
 
     def print_experiments(self, exfor_data):
         for exp_id in self.EXFOR_IDs:
-            sample_point = exfor_data.loc[exfor_data['EXFOR_Entry'] == exp_id].sample()
+            sample_point = exfor_data.loc[exfor_data['EXFOR_Subentry'] == exp_id].sample()
             print("{0}: [{2}] {3}, {1}".format(
                 sample_point["Reaction_Notation"].item(),
                 sample_point["Dataset_Number"].item(),
-                sample_point["EXFOR_Entry"].item(),
+                sample_point["EXFOR_Subentry"].item(),
                 sample_point["Author"].item()))
-    # (EXFOR.loc[EXFOR['EXFOR_Entry'] == i].sample())
+    # (EXFOR.loc[EXFOR['EXFOR_Subentry'] == i].sample())
 
     def gen_report(self, options, for_web=False):
         report_s = ""
@@ -168,7 +169,7 @@ class Nuclide:
         return report_s
 
 
-    def get_metrics(self, options):
+    def get_metrics(self, options, sql_con):
         self.reactions = {}
         self.num_datasets = np.int16(0)
         # Reset the reaction data and iterate over the reactions being graded
@@ -176,9 +177,7 @@ class Nuclide:
             mt = reaction_codes[0]
             reaction_name = reaction_codes[1]
             self.reactions[reaction_name] = Reaction(mt, reaction_name)
-            data_file = f"{options.projectile}_{self.Z}_{self.A}_{reaction_name}.csv"
-            data_path = os.path.join(NUGRADE_DATA_PATH, data_file)
-            channel_data = self.reactions[reaction_name].load_data(data_path)
+            channel_data = self.reactions[reaction_name].load_data(sql_con, options.projectile, mt, self.Z, self.A)
             
             # Calculate the error metrics and count measurements for each
             if len(channel_data) > 0:
