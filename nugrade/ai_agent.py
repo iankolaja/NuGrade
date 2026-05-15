@@ -64,7 +64,7 @@ class NuclearDataAgent:
         """Accesses experiment-wide metrics and up to 100 points of nuclear cross section data for a given nuclide and reaction."""
         nuclide_clean = nuclide_symbol_format(nuclide)
         message = ""
-        if nuclide_clean in metrics.keys():
+        if nuclide_clean in metrics.keys() and reaction_name in metrics[nuclide_clean].reactions:
             full_data = metrics[nuclide_clean].reactions[reaction_name].data
             experiment_data = metrics[nuclide_clean].reactions[reaction_name].experiment_results
             filtered_data =  full_data.sort_values(by="endf8_relative_error")
@@ -103,52 +103,52 @@ class NuclearDataAgent:
             available_data_dict[nuclide] = list(metrics[nuclide].reactions.keys())
         return json.dumps(available_data_dict)
     
+    @staticmethod
+    def _serialize_content(content):
+        result = []
+        for block in content:
+            if hasattr(block, 'type'):
+                if block.type == "text":
+                    result.append({"type": "text", "text": block.text})
+                elif block.type == "tool_use":
+                    result.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.input})
+            else:
+                result.append(block)
+        return result
+
     def chat(self, user_message, metrics, options, conversation_history=None):
         if conversation_history is None:
             conversation_history = []
-        
+
         conversation_history.append({
             "role": "user",
-            "content": [{
-                "type": "text",
-                "text": user_message
-            }]
+            "content": [{"type": "text", "text": user_message}]
         })
-        
+
         while True:
             response = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
+                model="claude-sonnet-4-6",
                 max_tokens=4096,
                 system=self.skill,
                 tools=self.tools,
                 messages=conversation_history
             )
-            
-            # Check if Claude wants to use a tool
+
             if response.stop_reason == "tool_use":
-                # Add Claude's request to history
                 conversation_history.append({
                     "role": "assistant",
-                    "content": response.content
+                    "content": self._serialize_content(response.content)
                 })
-                
-                # Find the tool use block
-                #tool_use = next(
-                #    block for block in response.content 
-                #    if block.type == "tool_use"
-                #)
+
                 tool_uses = [b for b in response.content if b.type == "tool_use"]
                 for tool_use in tool_uses:
-                    
-                    # Execute the tool
+                    print(f"[tool] {tool_use.name}({tool_use.input})")
                     tool_result = self.execute_tool(
-                        tool_use.name, 
+                        tool_use.name,
                         tool_use.input,
                         metrics=metrics,
                         options=options
                     )
-                    
-                    # Send result back to Claude
                     conversation_history.append({
                         "role": "user",
                         "content": [{
@@ -157,20 +157,15 @@ class NuclearDataAgent:
                             "content": tool_result
                         }]
                     })
-                
-                # Loop continues - Claude processes the tool result
-                
+
             else:
-                # Claude gave final answer
                 final_response = next(
-                    block.text for block in response.content 
+                    block.text for block in response.content
                     if hasattr(block, "text")
                 )
-                
                 conversation_history.append({
                     "role": "assistant",
-                    "content": response.content
+                    "content": self._serialize_content(response.content)
                 })
-                
                 return final_response, conversation_history
 
