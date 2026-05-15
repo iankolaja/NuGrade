@@ -31,7 +31,7 @@ version = '0.0.1'
 DB_PATH = str(BASE_DIR / 'data' / 'nugrade_data.db')
 CACHE_DB_PATH = str(BASE_DIR / 'data' / 'nugrade_cache.db')
 
-sql_con = sqlite3.connect(DB_PATH, check_same_thread=False)
+sql_con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, check_same_thread=False)
 _nuclide_index = load_nuclide_index()
 
 cache_con = sqlite3.connect(CACHE_DB_PATH, check_same_thread=False)
