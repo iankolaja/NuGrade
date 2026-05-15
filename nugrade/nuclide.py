@@ -22,6 +22,7 @@ class Reaction:
         self.num_datapoints = np.int32(1)
         self.mt = mt
         self.data = pd.DataFrame()
+        self.experiment_results = pd.DataFrame()
         self.name = reaction_name
 
     def load_data(self, sql_con, proj, mt, Z, A):
