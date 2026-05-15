@@ -44,7 +44,7 @@ class TestEnergyCoverage(unittest.TestCase):
         except AssertionError:
             pass
 
-    def test_energy_coverage_sort(self):
+    def test_energy_coverage_actual_data(self):
         sql_con = sqlite3.connect('data/test_data.db')
         options = MetricOptions()
         options.set_neutrons()
