@@ -1,5 +1,5 @@
+from pathlib import Path
 from anthropic import Anthropic
-import os
 import json
 from .grading_functions import nuclide_symbol_format
 
@@ -55,7 +55,8 @@ class NuclearDataAgent:
     
     def _load_skill(self):
         """Load the nuclear data analysis skill"""
-        with open('skills/nuclear-data-quality-assessment.md', 'r') as f:
+        skill_path = Path(__file__).parent.parent / 'skills' / 'nuclear-data-quality-assessment.md'
+        with open(skill_path, 'r') as f:
             return f.read()
     
     def execute_tool(self, tool_name, tool_input, metrics=None, options=None):
@@ -90,17 +91,14 @@ class NuclearDataAgent:
         return data_str + f"\n{message}"
 
     def _get_nugrade_report(self, nuclide, reaction_name, metrics, options):
-        """Accesses NuGrade computed summary for a given nuclide and reaction including energy coverage, 
+        """Accesses NuGrade computed summary for a given nuclide and reaction including energy coverage,
         absolute relative error or chi squared, and number of experiments. Good starting point."""
-        message = ""
         try:
             nuclide_clean = nuclide_symbol_format(nuclide)
-            metric =  metrics[nuclide_clean]
-            report_text = metric.gen_report(options, for_web=False)
-            message += "\nNugrade report access successful."
-        except:
-            message += "\nNugrade report access failed. Does the nuclide/reaction exist in NuGrade?"
-        return report_text + message
+            report_text = metrics[nuclide_clean].gen_report(options, for_web=False)
+            return report_text + "\nNugrade report access successful."
+        except Exception:
+            return "Nugrade report access failed. Does the nuclide/reaction exist in NuGrade?"
     
     def _list_available_nuclides(self, metrics=None):
         """Lists all available nuclides and reactions. You can assume the data exists, but use this if a other tool call fails."""
