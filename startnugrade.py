@@ -57,14 +57,21 @@ _results_cache = {}
 _report_cache = {}
 
 def _db_mtime():
+    """Return the source database's modification time, used to invalidate stale cache entries."""
     return os.path.getmtime(DB_PATH) if os.path.isfile(DB_PATH) else 0.0
 
 def _key_to_str(key):
+    """Serialise a cache key tuple to a JSON string suitable for use as a SQLite TEXT key."""
     def to_list(obj):
         return [to_list(i) for i in obj] if isinstance(obj, tuple) else obj
     return json.dumps(to_list(list(key)))
 
 def options_cache_key(options):
+    """Return a hashable, order-stable tuple representing all fields that affect grading output.
+
+    Derived from MetricOptions.to_dict() so that adding a new field to that method
+    automatically includes it in the cache key.
+    """
     d = options.to_dict()
     return tuple(sorted(
         (k, tuple(sorted(v)) if isinstance(v, list) else v)
@@ -72,6 +79,13 @@ def options_cache_key(options):
     ))
 
 def get_or_compute_grades(options):
+    """Return (metrics, plot_script, plot_component) for the given options, using caches.
+
+    Checks the in-memory cache first, then the SQLite plot cache. On a hit, metrics are
+    provided as a LazyMetrics instance (computed per nuclide on demand). On a full miss,
+    all nuclides are graded and the resulting plot strings are saved to SQLite.
+    The cache is automatically invalidated when the source database's mtime changes.
+    """
     key = options_cache_key(options)
     if key not in _results_cache:
         key_str = _key_to_str(key)
@@ -97,6 +111,12 @@ def get_or_compute_grades(options):
 
 
 def get_or_compute_report(metrics, options, nuclide):
+    """Return the HTML report string for a nuclide, using caches.
+
+    Triggers per-nuclide metric computation via metrics[nuclide] if not yet computed.
+    Report HTML is cached in SQLite keyed on (options, nuclide) and invalidated by DB mtime.
+    Returns 'Nuclide not found.' if the nuclide is not in the metrics index.
+    """
     key = (options_cache_key(options), nuclide)
     if key not in _report_cache:
         options_key_str = _key_to_str(options_cache_key(options))
