@@ -6,6 +6,7 @@ import pandas as pd
 import os
 import uuid
 import copy
+import json
 import html as html_lib
 from anthropic import Anthropic
 from nugrade.ai_agent import NuclearDataAgent
@@ -25,11 +26,129 @@ md = MarkdownIt(
 )
 
 version = '0.0.1'
-sql_con = sqlite3.connect('data/nugrade_data.db', check_same_thread=False)
+DB_PATH = 'data/nugrade_data.db'
+CACHE_DB_PATH = 'data/nugrade_cache.db'
+
+sql_con = sqlite3.connect(DB_PATH, check_same_thread=False)
+_nuclide_index = load_nuclide_index()
+
+cache_con = sqlite3.connect(CACHE_DB_PATH, check_same_thread=False)
+cache_con.executescript("""
+    CREATE TABLE IF NOT EXISTS results_cache (
+        options_key TEXT PRIMARY KEY,
+        plot_script TEXT NOT NULL,
+        plot_component TEXT NOT NULL,
+        db_mtime REAL NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS report_cache (
+        options_key TEXT NOT NULL,
+        nuclide TEXT NOT NULL,
+        report_html TEXT NOT NULL,
+        db_mtime REAL NOT NULL,
+        PRIMARY KEY (options_key, nuclide)
+    );
+""")
+cache_con.commit()
+
+# --- Cache helpers (defined before startup so they can be used during init) ---
+
+_session_data = {}
+_results_cache = {}
+_report_cache = {}
+
+def _db_mtime():
+    return os.path.getmtime(DB_PATH) if os.path.isfile(DB_PATH) else 0.0
+
+def _key_to_str(key):
+    def to_list(obj):
+        return [to_list(i) for i in obj] if isinstance(obj, tuple) else obj
+    return json.dumps(to_list(list(key)))
+
+def options_cache_key(options):
+    d = options.to_dict()
+    return tuple(sorted(
+        (k, tuple(sorted(v)) if isinstance(v, list) else v)
+        for k, v in d.items()
+    ))
+
+def get_or_compute_grades(options):
+    key = options_cache_key(options)
+    if key not in _results_cache:
+        key_str = _key_to_str(key)
+        mtime = _db_mtime()
+        row = cache_con.execute(
+            "SELECT plot_script, plot_component FROM results_cache WHERE options_key = ? AND db_mtime = ?",
+            (key_str, mtime)
+        ).fetchone()
+        if row:
+            # Plots are cached — compute individual nuclides on demand
+            plot_script, plot_component = row
+            _results_cache[key] = (LazyMetrics(_nuclide_index, options, sql_con), plot_script, plot_component)
+        else:
+            metrics = grade_many_isotopes(options, sql_con)
+            plot_script, plot_component = plot_grades(metrics, options)
+            cache_con.execute(
+                "INSERT OR REPLACE INTO results_cache VALUES (?, ?, ?, ?)",
+                (key_str, plot_script, plot_component, mtime)
+            )
+            cache_con.commit()
+            _results_cache[key] = (metrics, plot_script, plot_component)
+    return _results_cache[key]
+
+
+def get_or_compute_report(metrics, options, nuclide):
+    key = (options_cache_key(options), nuclide)
+    if key not in _report_cache:
+        options_key_str = _key_to_str(options_cache_key(options))
+        mtime = _db_mtime()
+        if nuclide not in metrics:
+            return "Nuclide not found."
+        row = cache_con.execute(
+            "SELECT report_html FROM report_cache WHERE options_key = ? AND nuclide = ? AND db_mtime = ?",
+            (options_key_str, nuclide, mtime)
+        ).fetchone()
+        if row:
+            _report_cache[key] = row[0]
+        else:
+            report_html = metrics[nuclide].gen_report(options, for_web=True)
+            cache_con.execute(
+                "INSERT OR REPLACE INTO report_cache VALUES (?, ?, ?, ?)",
+                (options_key_str, nuclide, report_html, mtime)
+            )
+            cache_con.commit()
+            _report_cache[key] = report_html
+    return _report_cache[key]
+
+# --- Startup defaults ---
+# On a warm start, load plots from SQLite and defer metric computation to first request.
+# On a cold start, compute everything and seed the cache.
+
 default_options = MetricOptions()
 default_options.set_neutrons()
-default_metrics = grade_many_isotopes(default_options, sql_con)
-default_plot_script, default_plot_component = plot_grades(default_metrics, default_options)
+_default_key = options_cache_key(default_options)
+_default_key_str = _key_to_str(_default_key)
+_startup_mtime = _db_mtime()
+
+_cached_defaults = cache_con.execute(
+    "SELECT plot_script, plot_component FROM results_cache WHERE options_key = ? AND db_mtime = ?",
+    (_default_key_str, _startup_mtime)
+).fetchone()
+
+if _cached_defaults:
+    print("Loaded default plots from cache. Metrics will be computed on first request.")
+    default_metrics = None
+    default_plot_script, default_plot_component = _cached_defaults
+else:
+    print("No cache found. Computing default grades...")
+    default_metrics = grade_many_isotopes(default_options, sql_con)
+    default_plot_script, default_plot_component = plot_grades(default_metrics, default_options)
+    cache_con.execute(
+        "INSERT OR REPLACE INTO results_cache VALUES (?, ?, ?, ?)",
+        (_default_key_str, default_plot_script, default_plot_component, _startup_mtime)
+    )
+    cache_con.commit()
+    _results_cache[_default_key] = (default_metrics, default_plot_script, default_plot_component)
+
 default_options_text = default_options.gen_html_description()
 
 
@@ -58,7 +177,6 @@ ai_chat_history_default = (
     "<p class='agent-message'>Claude API access failed. AI summary not available.</p>"
 )
 
-_session_data = {}
 
 def get_session_data():
     sid = session.get('_sid')
@@ -95,7 +213,7 @@ def render_for_particle():
 @app.route('/')
 def index():
     sdata = get_session_data()
-    sdata['plot_script'], sdata['plot_component'] = plot_grades(sdata['metrics'], sdata['options'])
+    sdata['metrics'], sdata['plot_script'], sdata['plot_component'] = get_or_compute_grades(sdata['options'])
     sdata['options_text'] = sdata['options'].gen_html_description()
     return render_for_particle()
 
@@ -160,8 +278,7 @@ def generate_neutrons():
     if request.form.get('n,g', False):
         sdata['options'].required_reaction_channels += [(102, 'N,G')]
 
-    sdata['metrics'] = grade_many_isotopes(sdata['options'], sql_con)
-    sdata['plot_script'], sdata['plot_component'] = plot_grades(sdata['metrics'], sdata['options'])
+    sdata['metrics'], sdata['plot_script'], sdata['plot_component'] = get_or_compute_grades(sdata['options'])
     sdata['options_text'] = sdata['options'].gen_html_description()
     return render_for_particle()
 
@@ -178,8 +295,7 @@ def generate_protons():
     if request.form.get('p,g', False):
         sdata['options'].required_reaction_channels += [(102, 'P,G')]
 
-    sdata['metrics'] = grade_many_isotopes(sdata['options'], sql_con)
-    sdata['plot_script'], sdata['plot_component'] = plot_grades(sdata['metrics'], sdata['options'])
+    sdata['metrics'], sdata['plot_script'], sdata['plot_component'] = get_or_compute_grades(sdata['options'])
     sdata['options_text'] = sdata['options'].gen_html_description()
     return render_for_particle()
 
@@ -189,7 +305,7 @@ def set_neutrons():
     sdata = get_session_data()
     sdata['options'].set_neutrons()
     sdata['text_report'] = ""
-    sdata['plot_script'], sdata['plot_component'] = plot_grades(sdata['metrics'], sdata['options'])
+    sdata['metrics'], sdata['plot_script'], sdata['plot_component'] = get_or_compute_grades(sdata['options'])
     sdata['options_text'] = sdata['options'].gen_html_description()
     return render_for_particle()
 
@@ -199,7 +315,7 @@ def set_protons():
     sdata = get_session_data()
     sdata['options'].set_protons()
     sdata['text_report'] = ""
-    sdata['plot_script'], sdata['plot_component'] = plot_grades(sdata['metrics'], sdata['options'])
+    sdata['metrics'], sdata['plot_script'], sdata['plot_component'] = get_or_compute_grades(sdata['options'])
     sdata['options_text'] = sdata['options'].gen_html_description()
     return render_for_particle()
 
@@ -208,11 +324,8 @@ def set_protons():
 def get_report():
     sdata = get_session_data()
     report_nuclide = nuclide_symbol_format(request.form['report_nuclide'])
-    if report_nuclide in sdata['metrics'].keys():
-        sdata['text_report'] = sdata['metrics'][report_nuclide].gen_report(sdata['options'], for_web=True)
-    else:
-        sdata['text_report'] = "Nuclide not found."
-    sdata['plot_script'], sdata['plot_component'] = plot_grades(sdata['metrics'], sdata['options'])
+    sdata['text_report'] = get_or_compute_report(sdata['metrics'], sdata['options'], report_nuclide)
+    sdata['metrics'], sdata['plot_script'], sdata['plot_component'] = get_or_compute_grades(sdata['options'])
     sdata['options_text'] = sdata['options'].gen_html_description()
     return render_for_particle()
 
@@ -226,6 +339,7 @@ def chat():
         return jsonify({'agent_html': "<p class='agent-message'>AI is not available.</p>"})
 
     sdata = get_session_data()
+
     user_html = f'<div class="user-message-bubble"><p class="user-message">{html_lib.escape(user_message)}</p></div>'
 
     response_text, sdata['chat_history'] = claude_agent.chat(
