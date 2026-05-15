@@ -1,13 +1,11 @@
 import numpy as np
 import pandas as pd
-import os
-import re
 from .calc_energy_coverage import calc_energy_coverage
 from bokeh.models import ColumnDataSource, CategoricalColorMapper, Whisker
 from bokeh.plotting import figure, show
 from bokeh.embed import components
 from bokeh.palettes import inferno
-from nugrade.weighting_functions import maxwell_boltzmann_room_temp, maxwell_boltzmann_320C, watt, constant_flux
+from .weighting_functions import maxwell_boltzmann_room_temp, maxwell_boltzmann_320C, watt, constant_flux
 
 
 
