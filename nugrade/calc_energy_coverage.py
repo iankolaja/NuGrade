@@ -3,6 +3,25 @@ import numpy as np
 
 
 def calc_energy_coverage(channel_data, options):
+    """Compute the fraction of [lower_energy, upper_energy] covered by a set of data points.
+
+    Each measurement at energy E is treated as covering a window of ``energy_width``
+    centred on E. Coverage is the total covered interval divided by the full range,
+    returned as a percentage (0–100). Can operate on a linear or log10 energy axis.
+
+    Parameters
+    ----------
+    channel_data : pd.DataFrame
+        Must contain a sorted-ascending ``Energy`` column (eV).
+    options : MetricOptions
+        Supplies ``lower_energy``, ``upper_energy``, ``energy_width`` (all in eV on
+        the linear scale), and ``energy_coverage_scale`` (``'log'`` or ``'linear'``).
+
+    Returns
+    -------
+    float
+        Coverage percentage rounded to 7 decimal places.
+    """
     lower_energy = options.lower_energy
     upper_energy = options.upper_energy
     energy_width = options.energy_width

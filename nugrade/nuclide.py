@@ -13,6 +13,8 @@ from nugrade.weighting_functions import maxwell_boltzmann_room_temp, maxwell_bol
 
 
 class Reaction:
+    """Stores experimental data and computed quality metrics for a single reaction channel."""
+
     def __init__(self, mt,  reaction_name):
         self.energy_coverage = np.float32(0.0)
         self.energy_coverage_w_unc = np.float32(0.0)
@@ -26,6 +28,7 @@ class Reaction:
         self.name = reaction_name
 
     def load_data(self, sql_con, proj, mt, Z, A):
+        """Query the measurements table and load data for this reaction channel into self.data."""
         data_file_columns = {'Energy': np.float64, 'dEnergy': np.float64, 'Data': np.float64, 
                              'dData': np.float64, 'dData_assumed': np.float64,
                              'EXFOR_Subentry': str,'EXFOR_Entry': str, 'Year': np.int16, 
@@ -36,6 +39,32 @@ class Reaction:
         return self.data
 
     def calc_metrics(self, options):
+        """Compute energy coverage and precision metrics for this reaction channel.
+
+        For each experiment (EXFOR subentry), calculates a flux-weighted mean of the
+        selected error metric (chi-squared or relative error) over the experiment's
+        energy coverage. The channel-level metric is the energy-coverage-weighted mean
+        across experiments, so experiments covering more of the target energy range
+        contribute proportionally more to the final score.
+
+        Parameters
+        ----------
+        options : MetricOptions
+            Supplies the energy range, evaluation library, scored metric
+            (``'chi_squared'`` or ``'relative_error'``), and optional weighting function.
+
+        Sets
+        ----
+        self.energy_coverage, self.energy_coverage_w_unc : float
+            Percentage of the target energy range covered by all data / data with
+            reported uncertainties respectively.
+        self.average_metric : float
+            Energy-coverage-weighted mean of the per-experiment flux-weighted error metric.
+        self.score : float
+            Composite score combining energy coverage and average metric.
+        self.experiment_results : pd.DataFrame
+            Per-experiment energy coverage and average metric values.
+        """
         # Calculate overall energy coverage for this reaction channel
         channel_data = self.data[self.data['Energy'].between(options.lower_energy, options.upper_energy)]
         channel_data_w_unc = channel_data[channel_data["dData_assumed"].notna()]
@@ -114,6 +143,8 @@ class Reaction:
 
 
 class Nuclide:
+    """Top-level container for all reaction channel grades associated with one nuclide."""
+
     def __init__(self, Z, A, symbol):
         self.Z = int(Z)
         self.A = int(A)
@@ -171,6 +202,7 @@ class Nuclide:
 
 
     def get_metrics(self, options, sql_con):
+        """Load data and compute metrics for every reaction channel specified in options."""
         self.reactions = {}
         self.num_datasets = np.int16(0)
         # Reset the reaction data and iterate over the reactions being graded
@@ -189,6 +221,11 @@ class Nuclide:
 
 
 def plot_precision_data(reaction, evaluation_code, show_plot=False):
+    """Generate three Bokeh plots for a reaction channel: cross section, relative error, and chi-squared vs energy.
+
+    Returns (script, div) strings (concatenated across all three plots) for HTML embedding.
+    Bounds fall back to sensible defaults when evaluation columns are entirely NaN.
+    """
     evaluation_error_column = evaluation_code + '_relative_error'
     evaluation_chi_column = evaluation_code + '_chi_squared'
     reaction_data = reaction.data.rename(columns={evaluation_error_column: "Relative_Error",

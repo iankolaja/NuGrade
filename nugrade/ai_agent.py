@@ -4,6 +4,13 @@ import json
 from .grading_functions import nuclide_symbol_format
 
 class NuclearDataAgent:
+    """Claude-powered conversational agent for querying NuGrade nuclear data.
+
+    Exposes three tools to the model — ``get_nuclear_data``, ``list_available_nuclides``,
+    and ``get_nugrade_report`` — and handles the tool-use loop automatically so that
+    callers receive a plain text response from ``chat()``.
+    """
+
     def __init__(self, api_key):
         self.client = Anthropic(api_key=api_key)
         self.tools = self._define_tools()
@@ -117,6 +124,26 @@ class NuclearDataAgent:
         return result
 
     def chat(self, user_message, metrics, options, conversation_history=None):
+        """Send a user message and run the tool-use loop until a final text response is ready.
+
+        Parameters
+        ----------
+        user_message : str
+            The user's input text.
+        metrics : dict or LazyMetrics
+            Per-nuclide grading results, used by tool implementations.
+        options : MetricOptions
+            Current grading options, passed to report-generating tools.
+        conversation_history : list, optional
+            Existing message history to continue. Mutated in place and returned.
+
+        Returns
+        -------
+        final_response : str
+            The model's text response after all tool calls are resolved.
+        conversation_history : list
+            Updated message history including this exchange.
+        """
         if conversation_history is None:
             conversation_history = []
 

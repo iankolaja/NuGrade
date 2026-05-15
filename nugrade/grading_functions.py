@@ -9,6 +9,10 @@ import pandas as pd
 import re 
 
 def nuclide_symbol_format(input_nuclide):
+    """Normalise a user-supplied nuclide string to the canonical '<A><Symbol>' form.
+
+    Accepts formats such as 'Li-7', '7li', '7Li', or 'LI7'. Returns e.g. '7Li'.
+    """
     input_str = str(input_nuclide).replace(" ","")
     if "-" in input_str:
         input_split = input_str.split("-")
@@ -69,12 +73,19 @@ class LazyMetrics:
 
 
 def grade_isotope(Z, A, symbol, options, sql_con):
+    """Compute and return a fully graded Nuclide for a single isotope."""
     nuc = Nuclide(int(Z), int(A), symbol)
     nuc.get_metrics(options, sql_con)
     return nuc
 
 
 def grade_many_isotopes(options, sql_con):
+    """Grade all isotopes listed in data/all_reactions.csv and return a metrics dict.
+
+    Returns {nuclide_key: Nuclide} for every isotope that has at least one reaction
+    channel with data under the given options. Skips pseudo-entries (heavy water,
+    free neutron, A=0).
+    """
     all_reactions = pd.read_csv("data/all_reactions.csv")
     all_isotopes = all_reactions[["Z","A","Symbol"]].drop_duplicates()
     metrics = {}
@@ -104,6 +115,11 @@ def _get_rgb(score, q5, q95):
 
 
 def plot_grades(metrics, options, show_plot=False):
+    """Render a nuclear chart (N vs Z) with nuclides colour-coded by their overall score.
+
+    Score colours are normalised to the 5th–95th percentile range across the loaded
+    nuclides. Returns (script, div) Bokeh component strings for embedding in HTML.
+    """
     n_vals = []
     z_vals = []
     score_values = []
