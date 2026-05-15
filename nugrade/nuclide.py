@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import os
 import re
-from .config import NUGRADE_DATA_PATH
 from .calc_energy_coverage import calc_energy_coverage
 from bokeh.models import ColumnDataSource, CategoricalColorMapper, Whisker
 from bokeh.plotting import figure, show
@@ -106,11 +105,8 @@ class Reaction:
             #    relevant_experiments += [row]
 
             # Calculate the error metric, energy coverage for this experiment
-            if (len(experiment_data.dropna()) == 0) and "Chi" in options.scored_metric["chi_squared"]:
-                experiment_wise_metrics_weighted_means += [0.0]
-            else:
-                experiment_wise_metric = weighting_function(experiment_data['Energy']) * experiment_data[eval_metric_str]
-                experiment_wise_metric_mean = np.nanmean(np.abs(experiment_wise_metric))
+            experiment_wise_metric = weighting_function(experiment_data['Energy']) * experiment_data[eval_metric_str]
+            experiment_wise_metric_mean = np.nanmean(np.abs(experiment_wise_metric))
             experiment_energy_coverage = calc_energy_coverage(experiment_data, options)
 
             experiment_wise_metrics_weighted_means += [experiment_energy_coverage*experiment_wise_metric_mean]
