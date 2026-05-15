@@ -199,9 +199,12 @@ def plot_precision_data(reaction, evaluation_code, show_plot=False):
     data_y_lower_bound = np.max((1E-40, np.min(reaction_data["Data"])*0.1))
     data_y_upper_bound = np.max((np.abs(reaction_data["Data"]))) * 1.05
 
-    error_y_bound = np.max((np.abs(reaction_data["Relative_Error"]))) * 1.05
-    chi_y_lower_bound = np.min((0.1, np.min(reaction_data["Chi_Squared"])))
-    chi_y_upper_bound = np.max((1, np.max(reaction_data["Chi_Squared"])))* 1.05
+    rel_errors = reaction_data["Relative_Error"].dropna()
+    error_y_bound = (np.max(np.abs(rel_errors)) * 1.05) if len(rel_errors) > 0 else 1.0
+
+    chi_vals = reaction_data["Chi_Squared"].dropna()
+    chi_y_lower_bound = np.min((0.1, chi_vals.min())) if len(chi_vals) > 0 else 0.1
+    chi_y_upper_bound = np.max((1, chi_vals.max())) * 1.05 if len(chi_vals) > 0 else 1.05
 
     reaction_data["Labeled_XS"] = (
     reaction_data["Data"].map("{:.3e}".format)
