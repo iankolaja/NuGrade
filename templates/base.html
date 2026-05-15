@@ -175,14 +175,89 @@
 						<p>This agent can access the data NuGrade has access to. Claude can make mistakes; verify
 							important conclusions and that key data exists.</p>
 					</div>
-					<div class="w3-container w3-card w3-padding w3-white"
+					<div id="chat-box" class="w3-container w3-card w3-padding w3-white"
 						style="margin-top:10px;margin-bottom:10px;min-height:200px;max-height:800px;overflow-y:scroll;">
 						{% autoescape false %}
 						{{ ai_chat_history | safe}}
 						{% endautoescape %}
 					</div>
+					<form id="chat-form" style="display:flex;gap:8px;margin-top:8px;">
+						<input id="chat-input" class="w3-input w3-border" type="text"
+							placeholder="Ask about the nuclear data..." style="flex:1;">
+						<button id="chat-send" type="submit" class="w3-button w3-black">Send</button>
+					</form>
 				</div>
 			</div>
+
+			<style>
+			.typing-indicator { display:flex; align-items:center; gap:5px; padding:6px 4px; }
+			.typing-indicator span {
+				width:8px; height:8px; border-radius:50%; background:#888;
+				animation: typing-bounce 1.2s infinite;
+			}
+			.typing-indicator span:nth-child(2) { animation-delay:0.2s; }
+			.typing-indicator span:nth-child(3) { animation-delay:0.4s; }
+			@keyframes typing-bounce {
+				0%,60%,100% { transform:translateY(0); opacity:0.6; }
+				30% { transform:translateY(-6px); opacity:1; }
+			}
+			</style>
+
+			<script>
+			(function() {
+				var chatBox = document.getElementById('chat-box');
+				var form = document.getElementById('chat-form');
+				var input = document.getElementById('chat-input');
+				var sendBtn = document.getElementById('chat-send');
+
+				chatBox.scrollTop = chatBox.scrollHeight;
+
+				function escapeHtml(s) {
+					return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+				}
+
+				var TYPING_HTML = '<div id="typing-indicator" class="agent-message-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>';
+
+				form.addEventListener('submit', function(e) {
+					e.preventDefault();
+					var msg = input.value.trim();
+					if (!msg) return;
+
+					input.value = '';
+					input.disabled = true;
+					sendBtn.disabled = true;
+					sendBtn.textContent = '...';
+
+					chatBox.innerHTML += '<div class="user-message-bubble"><p class="user-message">' + escapeHtml(msg) + '</p></div>';
+					chatBox.innerHTML += TYPING_HTML;
+					chatBox.scrollTop = chatBox.scrollHeight;
+
+					fetch('/chat', {
+						method: 'POST',
+						headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+						body: 'user_message=' + encodeURIComponent(msg)
+					})
+					.then(function(r) { return r.json(); })
+					.then(function(data) {
+						var indicator = document.getElementById('typing-indicator');
+						if (indicator) indicator.remove();
+						chatBox.innerHTML += data.agent_html;
+						chatBox.scrollTop = chatBox.scrollHeight;
+					})
+					.catch(function() {
+						var indicator = document.getElementById('typing-indicator');
+						if (indicator) indicator.remove();
+						chatBox.innerHTML += '<p class="agent-message">Error reaching the server.</p>';
+					})
+					.finally(function() {
+						input.disabled = false;
+						sendBtn.disabled = false;
+						sendBtn.textContent = 'Send';
+						input.focus();
+					});
+				});
+			})();
+			</script>
 
 			<div class="w3-col m7 l6 w3-light-gray">
 				<div class="w3-container w3-center">
