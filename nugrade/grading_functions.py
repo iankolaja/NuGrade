@@ -20,6 +20,54 @@ def nuclide_symbol_format(input_nuclide):
         A = ''.join(filtered_chars)
     return f"{A}{symbol.title()}"
 
+def load_nuclide_index():
+    """Return {nuclide_key: (Z, A, symbol)} for all valid nuclides in all_reactions.csv."""
+    all_reactions = pd.read_csv("data/all_reactions.csv")
+    index = {}
+    for _, row in all_reactions[["Z", "A", "Symbol"]].drop_duplicates().iterrows():
+        z, a, symbol = row["Z"], row["A"], row["Symbol"]
+        if symbol == "Heavy Water" or symbol == "n" or a == 0:
+            continue
+        index[str(a) + symbol] = (z, a, symbol)
+    return index
+
+
+class LazyMetrics:
+    """Metrics dict that computes individual nuclides on demand.
+    Transparent drop-in for a plain dict: metrics[key] triggers computation only for that nuclide.
+    """
+    def __init__(self, nuclide_index, options, sql_con):
+        self._index = nuclide_index
+        self._options = options
+        self._sql_con = sql_con
+        self._computed = {}
+
+    def _compute(self, key):
+        if key not in self._computed and key in self._index:
+            z, a, symbol = self._index[key]
+            self._computed[key] = grade_isotope(z, a, symbol, self._options, self._sql_con)
+
+    def __getitem__(self, key):
+        self._compute(key)
+        return self._computed[key]
+
+    def __contains__(self, key):
+        return key in self._index
+
+    def keys(self):
+        return self._index.keys()
+
+    def values(self):
+        for key in self._index:
+            self._compute(key)
+        return self._computed.values()
+
+    def items(self):
+        for key in self._index:
+            self._compute(key)
+        return self._computed.items()
+
+
 def grade_isotope(Z, A, symbol, options, sql_con):
     nuc = Nuclide(int(Z), int(A), symbol)
     nuc.get_metrics(options, sql_con)

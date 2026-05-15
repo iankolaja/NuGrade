@@ -14,6 +14,7 @@ class MetricOptions:
 
     def to_dict(self):
         opt_dict = dict()
+        opt_dict['projectile'] = self.projectile
         opt_dict['lower_energy'] = self.lower_energy
         opt_dict['upper_energy'] = self.upper_energy
         opt_dict['energy_width'] = self.energy_width
