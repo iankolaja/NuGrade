@@ -20,6 +20,10 @@ This skill guides analysis of nuclear cross section data from the NuGrade Flask 
 - 'Author' - Experiment author.
 - 'endf7-1', 'endf8' - Interpolated cross section from endf7-1 or endf8 at energy.
 
+## Tool Usage
+- For data quality questions, start with `get_nugrade_report`.
+- For questions about experimental methodology — detector types, neutron sources, sample materials, facility details, systematic errors — use `search_corpus` with appropriate filters. Do not answer these from domain knowledge when `search_corpus` is available; the EXFOR text corpus is the ground truth. If the first search returns low corpus coverage or no useful results, acknowledge that and stop retrying — the information is simply not in the corpus.
+
 ## Domain Knowledge
 - EXFOR database structure and metadata
 - Cross section physics (resonances, thresholds, reaction mechanisms)
