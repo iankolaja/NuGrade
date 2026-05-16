@@ -178,7 +178,7 @@ if os.path.isfile(str(BASE_DIR / 'keys' / 'claude.txt')):
     with open(str(BASE_DIR / 'keys' / 'claude.txt'), "r") as f:
         anthropic_api_key = f.read()
     try:
-        claude_agent = NuclearDataAgent(api_key=anthropic_api_key)
+        claude_agent = NuclearDataAgent(api_key=anthropic_api_key, sql_con=sql_con)
         ai_available = True
     except:
         print("Access to Claude failed. Is your key correct, and "+\
@@ -364,10 +364,19 @@ def chat():
 
     user_html = f'<div class="user-message-bubble"><p class="user-message">{html_lib.escape(user_message)}</p></div>'
 
-    response_text, sdata['chat_history'] = claude_agent.chat(
-        user_message, metrics=sdata['metrics'], options=sdata['options'],
-        conversation_history=sdata['chat_history']
-    )
+    try:
+        response_text, sdata['chat_history'] = claude_agent.chat(
+            user_message, metrics=sdata['metrics'], options=sdata['options'],
+            conversation_history=sdata['chat_history']
+        )
+    except Exception as e:
+        err = str(e)
+        if "rate_limit" in err or "429" in err:
+            msg = "Rate limit reached — your conversation history may be too long. Try clearing the chat and asking again."
+        else:
+            msg = f"An error occurred: {err}"
+        return jsonify({'agent_html': f"<p class='agent-message'>{msg}</p>"})
+
     agent_html = f'<div class="agent-message-bubble"><p class="agent-message">{md.render(response_text)}</p></div>'
     sdata['chat_html'] += user_html + agent_html
 
