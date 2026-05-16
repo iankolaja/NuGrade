@@ -296,6 +296,50 @@
 </footer>
 </div>
 
+<div id="loading-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+	background:rgba(255,255,255,0.75);z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
+	<div style="display:flex;gap:8px;margin-bottom:12px;">
+		<span class="loading-dot"></span>
+		<span class="loading-dot"></span>
+		<span class="loading-dot"></span>
+	</div>
+	<p style="font-family:Lato,sans-serif;font-size:1.1rem;color:#333;" id="loading-message">Computing grades…</p>
+</div>
+
+<style>
+.loading-dot {
+	width:12px; height:12px; border-radius:50%; background:#26a0da;
+	animation: loading-bounce 1.2s infinite;
+}
+.loading-dot:nth-child(2) { animation-delay:0.2s; }
+.loading-dot:nth-child(3) { animation-delay:0.4s; }
+@keyframes loading-bounce {
+	0%,60%,100% { transform:translateY(0); opacity:0.5; }
+	30% { transform:translateY(-10px); opacity:1; }
+}
+</style>
+
+<script>
+(function() {
+	var overlay = document.getElementById('loading-overlay');
+	var msg = document.getElementById('loading-message');
+
+	function showOverlay(text) {
+		msg.textContent = text || 'Computing grades…';
+		overlay.style.display = 'flex';
+	}
+
+	var generateForm = document.querySelector('form[action^="/generate"]');
+	if (generateForm) {
+		generateForm.addEventListener('submit', function() { showOverlay('Computing grades…'); });
+	}
+
+	var reportForm = document.querySelector('form[action="/get_report"]');
+	if (reportForm) {
+		reportForm.addEventListener('submit', function() { showOverlay('Loading report…'); });
+	}
+})();
+</script>
 
 </body>
 
