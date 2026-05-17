@@ -63,6 +63,11 @@ background-color: white;
     text-align: left;
 }
 
+.agent-message table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.agent-message th, .agent-message td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+.agent-message th { background: #f1f1f1; }
+
+
 .user-message{
     border: 1px;
     border-style: solid;
