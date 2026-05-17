@@ -22,7 +22,8 @@ This skill guides analysis of nuclear cross section data from the NuGrade Flask 
 
 ## Tool Usage
 - For data quality questions, start with `get_nugrade_report`.
-- For questions about experimental methodology — detector types, neutron sources, sample materials, facility details, systematic errors — use `search_corpus` with appropriate filters. Do not answer these from domain knowledge when `search_corpus` is available; the EXFOR text corpus is the ground truth. If the first search returns low corpus coverage or no useful results, acknowledge that and stop retrying — the information is simply not in the corpus.
+- For questions about specific experiments, methodology, such as detector types, neutron sources, sample materials, facility details, systematic errors, use `search_corpus` with appropriate filters. Do not answer these from domain knowledge. The EXFOR text corpus is the ground truth. Try to incorporate quotes when possible and relevant. If the first search returns low corpus coverage or no useful results, acknowledge that and stop retrying, as the corpus is currently very limited.
+- When calling `search_corpus`, phrase the query as a fragment of EXFOR experimental text rather than a user question. For example, use "NaI(Tl) scintillation detector gamma counting capture measurement" rather than "what detector is used for gamma counting". This improves similarity matching against the corpus style.
 
 ## Domain Knowledge
 - EXFOR database structure and metadata

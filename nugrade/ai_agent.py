@@ -90,6 +90,7 @@ class NuclearDataAgent:
                 "name": "search_corpus",
                 "description": (
                     "Semantic similarity search over EXFOR experimental text records. "
+                    "Queries should be similar to EXFOR passage that answers the user's question. "
                     "Optionally pre-filter by structured fields before running similarity search. "
                     "Returns the top matching text passages with their EXFOR entry IDs."
                 ),
