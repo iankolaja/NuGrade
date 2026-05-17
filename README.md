@@ -1,18 +1,18 @@
 # NuGrade
 NuGrade is a Flask-based tool for assessing the quality of nuclear data at a glance. It does this by comparing raw EXFOR data with evaluations. Error metrics such as absolute relative error or chi squared can be computed, capturing the deviation between evaluation and experiment. Energy coverage is also factored in, with reaction channels that are measured across a wide range of energy being scored better than those with only a few data points.
 
-<img src="static/screenshots/chart_of_nuclides.png" width="800">
+<img src="static/screenshots/chart_of_nuclides.png" width="800px">
 
 
 Specific reaction channels can be examined more closely.
 
-<img src="static/screenshots/nuclide_lookup.png" width="400">
+<img src="static/screenshots/nuclide_lookup.png" width="400px">
 
 Claude is integrated with NuGrade, allowing for discussion of the computed metrics and analysis of the experimental corpus when available. The system is enhanced with retrieval-augmented generation that allows for specific sentences to be found. 
 
-<img src="static/screenshots/chatbot_1.png" width="400">
+<img src="static/screenshots/chatbot_1.png" width="400px">
 
-<img src="static/screenshots/chatbot_2.png" width="400">
+<img src="static/screenshots/chatbot_2.png" width="400px">
 
 
 
