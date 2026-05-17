@@ -11,7 +11,6 @@ Specific reaction channels can be examined more closely.
 Claude is integrated with NuGrade, allowing for discussion of the computed metrics and analysis of the experimental corpus when available. The system is enhanced with retrieval-augmented generation that allows for specific sentences to be found. 
 
 <img src="static/screenshots/chatbot_1.png" width="550px">
-
 <img src="static/screenshots/chatbot_2.png" width="550px">
 
 
