@@ -85,6 +85,23 @@ class NuclearDataAgent:
             },
         ]
 
+        if self.sql_con is not None:
+            tools.append({
+                "name": "get_entry_text",
+                "description": "Retrieve the full text record for a specific EXFOR entry from the corpus. "
+                               "Use this after search_corpus has identified a relevant entry and you want "
+                               "to read the complete experimental description. "
+                               "Never reproduce the full text verbatim in your response. Some sources are "
+                               "paywalled journal articles or private communications. Summarize and quote selectively instead.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "EXFOR_Entry": {"type": "string", "description": "The EXFOR entry number to retrieve."}
+                    },
+                    "required": ["EXFOR_Entry"]
+                }
+            })
+
         if self.scibert_available and self.sql_con is not None:
             tools.append({
                 "name": "search_corpus",
@@ -156,6 +173,8 @@ class NuclearDataAgent:
             return self._list_available_nuclides(metrics=metrics, options=options)
         elif tool_name == "get_nugrade_report":
             return self._get_nugrade_report(**tool_input, metrics=metrics, options=options)
+        elif tool_name == "get_entry_text":
+            return self._get_entry_text(**tool_input)
         elif tool_name == "search_corpus":
             return self._search_corpus(**tool_input)
         return f"Unknown tool: {tool_name}"
@@ -195,6 +214,16 @@ class NuclearDataAgent:
         """Lists all available nuclides and the configured reaction channels."""
         reaction_names = [r[1] for r in options.required_reaction_channels] if options else []
         return json.dumps({nuclide: reaction_names for nuclide in metrics.keys()})
+
+    def _get_entry_text(self, EXFOR_Entry):
+        """Return the full text of an EXFOR entry from the corpus, ordered by sentence."""
+        rows = self.sql_con.execute(
+            "SELECT Text FROM sentence_embeddings WHERE EXFOR_Entry = ? ORDER BY Sentence_Number",
+            (EXFOR_Entry,)
+        ).fetchall()
+        if not rows:
+            return f"No text records found for entry {EXFOR_Entry}."
+        return f"[Entry {EXFOR_Entry}]\n" + " ".join(r[0] for r in rows)
 
     def _search_corpus(self, query, filters=None, top_k=5):
         """Semantic search over EXFOR sentence embeddings with optional pre-filtering.
