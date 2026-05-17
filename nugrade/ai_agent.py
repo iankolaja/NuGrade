@@ -51,12 +51,27 @@ class NuclearDataAgent:
         tools = [
             {
                 "name": "get_nuclear_data",
-                "description": "Retrieve experimental and evaluated cross section data for a specific nuclide and reaction.",
+                "description": "Retrieve raw cross section data points for a specific nuclide and reaction. "
+                               "Returns up to 10 points sorted by highest error. Use filters to target a specific "
+                               "energy range, author, or experiment. For per-experiment summaries use get_nugrade_report.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "nuclide": {"type": "string"},
-                        "reaction_name": {"type": "string"}
+                        "nuclide":       {"type": "string"},
+                        "reaction_name": {"type": "string"},
+                        "filters": {
+                            "type": "object",
+                            "description": "Optional filters applied to the data before returning.",
+                            "properties": {
+                                "energy_lower":   {"type": "number", "description": "Only return points at or above this energy (eV)."},
+                                "energy_upper":   {"type": "number", "description": "Only return points at or below this energy (eV)."},
+                                "Author":         {"type": "string", "description": "Filter to a specific author (partial match)."},
+                                "EXFOR_Entry":    {"type": "string", "description": "Filter to a specific EXFOR entry."},
+                                "EXFOR_Subentry": {"type": "string", "description": "Filter to a specific EXFOR subentry."},
+                                "year_min":       {"type": "integer", "description": "Only return data from this year or later."},
+                                "year_max":       {"type": "integer", "description": "Only return data from this year or earlier."},
+                            }
+                        }
                     },
                     "required": ["nuclide", "reaction_name"]
                 }
@@ -67,6 +82,20 @@ class NuclearDataAgent:
                 "input_schema": {
                     "type": "object",
                     "properties": {}
+                }
+            },
+            {
+                "name": "get_experiment_list",
+                "description": "List all experiments for a specific nuclide and reaction channel, "
+                               "with their EXFOR entry/subentry IDs, authors, energy coverage, and quality metric. "
+                               "Use this to find EXFOR IDs before calling get_entry_text or get_nuclear_data.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "nuclide":       {"type": "string"},
+                        "reaction_name": {"type": "string"}
+                    },
+                    "required": ["nuclide", "reaction_name"]
                 }
             },
             {
@@ -167,8 +196,13 @@ class NuclearDataAgent:
 
     def execute_tool(self, tool_name, tool_input, metrics=None, options=None):
         """Dispatch a tool call and return its string result."""
-        if tool_name == "get_nuclear_data":
-            return self._get_nuclear_data(**tool_input, metrics=metrics)
+        if tool_name == "get_experiment_list":
+            return self._get_experiment_list(**tool_input, metrics=metrics)
+        elif tool_name == "get_nuclear_data":
+            return self._get_nuclear_data(
+                tool_input["nuclide"], tool_input["reaction_name"],
+                filters=tool_input.get("filters"), metrics=metrics
+            )
         elif tool_name == "list_available_nuclides":
             return self._list_available_nuclides(metrics=metrics, options=options)
         elif tool_name == "get_nugrade_report":
@@ -179,27 +213,45 @@ class NuclearDataAgent:
             return self._search_corpus(**tool_input)
         return f"Unknown tool: {tool_name}"
 
-    def _get_nuclear_data(self, nuclide, reaction_name, metrics):
-        """Accesses experiment-wide metrics and up to 100 points of nuclear cross section data."""
+    def _get_experiment_list(self, nuclide, reaction_name, metrics):
+        """Returns the per-experiment summary for a nuclide/reaction channel."""
         nuclide_clean = nuclide_symbol_format(nuclide)
-        message = ""
-        if nuclide_clean in metrics.keys() and reaction_name in metrics[nuclide_clean].reactions:
-            full_data = metrics[nuclide_clean].reactions[reaction_name].data
-            experiment_data = metrics[nuclide_clean].reactions[reaction_name].experiment_results
-            filtered_data = full_data.sort_values(by="endf8_relative_error")
-            drop_columns = ['dEnergy', 'dData_assumed', 'MT', 'Dataset_Number', 'endf7-1_chi_squared',
-                            'endf7-1_relative_error', 'endf8_relative_error', 'endf8_chi_squared']
-            filtered_data = filtered_data.drop(columns=drop_columns).reset_index(drop=True)
-            if len(filtered_data) > 100:
-                message += f"Data long ({len(filtered_data)} points). Truncating to 100 points with highest error. "
-                filtered_data = filtered_data.iloc[:100]
-            data_str = filtered_data.to_csv()
-            data_str += "\n\nExperiments:\n" + experiment_data.to_csv()
-        else:
-            message += f"{nuclide_clean} not found in data. "
-            data_str = ""
-        print(data_str)
-        return data_str + f"\n{message}"
+        try:
+            return metrics[nuclide_clean].reactions[reaction_name].experiment_results.to_csv(index=False)
+        except KeyError:
+            return f"{nuclide_clean} / {reaction_name} not found."
+
+    def _get_nuclear_data(self, nuclide, reaction_name, metrics, filters=None):
+        """Returns up to 10 raw cross section data points, sorted by highest error. Use filters to narrow results."""
+        nuclide_clean = nuclide_symbol_format(nuclide)
+        if nuclide_clean not in metrics.keys() or reaction_name not in metrics[nuclide_clean].reactions:
+            return f"{nuclide_clean} not found in data."
+
+        full_data = metrics[nuclide_clean].reactions[reaction_name].data.copy()
+        f = filters or {}
+        if "energy_lower" in f:
+            full_data = full_data[full_data["Energy"] >= f["energy_lower"]]
+        if "energy_upper" in f:
+            full_data = full_data[full_data["Energy"] <= f["energy_upper"]]
+        if "Author" in f:
+            full_data = full_data[full_data["Author"].str.contains(f["Author"], case=False, na=False)]
+        if "EXFOR_Entry" in f:
+            full_data = full_data[full_data["EXFOR_Entry"] == f["EXFOR_Entry"]]
+        if "EXFOR_Subentry" in f:
+            full_data = full_data[full_data["EXFOR_Subentry"] == f["EXFOR_Subentry"]]
+        if "year_min" in f:
+            full_data = full_data[full_data["Year"] >= f["year_min"]]
+        if "year_max" in f:
+            full_data = full_data[full_data["Year"] <= f["year_max"]]
+
+        drop_columns = ['dEnergy', 'dData_assumed', 'EXFOR_Entry', 'endf7-1_chi_squared',
+                        'endf7-1_relative_error', 'endf8_relative_error', 'endf8_chi_squared']
+        result = (full_data.sort_values(by="endf8_relative_error")
+                           .drop(columns=drop_columns)
+                           .reset_index(drop=True)
+                           .iloc[:10])
+        message = f"Showing {len(result)} of {len(full_data)} filtered points (highest error first)."
+        return result.to_csv() + f"\n{message}"
 
     def _get_nugrade_report(self, nuclide, reaction_name, metrics, options):
         """Accesses NuGrade computed summary for a given nuclide and reaction."""
