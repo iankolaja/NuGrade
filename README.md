@@ -1,7 +1,20 @@
 # NuGrade
 NuGrade is a Flask-based tool for assessing the quality of nuclear data at a glance. It does this by comparing raw EXFOR data with evaluations. Error metrics such as absolute relative error or chi squared can be computed, capturing the deviation between evaluation and experiment. Energy coverage is also factored in, with reaction channels that are measured across a wide range of energy being scored better than those with only a few data points.
+
 ![Chart of nuclides overview of data quality](static/screenshots/chart_of_nuclides.png)
-![Demonstration of Claude AI integration and ability to fetch deeper data](static/screenshots/deeper_analysis.png)
+
+Specific reaction channels can be examined more closely.
+
+![Nuclide lookup](static/screenshots/nuclide_lookup.png)
+
+Claude is integrated with NuGrade, allowing for discussion of the computed metrics and analysis of the experimental corpus when available. The system is enhanced with retrieval-augmented generation that allows for specific sentences to be found. 
+
+![Demonstration of Claude AI integration to search literature](static/screenshots/chatbot_1.png)
+
+![Demonstration of Claude AI to discuss results.](static/screenshots/chatbot_2.png)
+
+
+
 ## Metric Options
 |Parameter | Description |
 |-----|--------|
@@ -19,10 +32,12 @@ Due to the high volume of data needed to run this platform, this section is stil
 The following packages are needed to run NuGrade locally:
 - Numpy
 - Pandas
-- Matplotlib
+- PyTorch 
 - Bokeh
 - Anthropic
 - Markdown-it-py
+- Transformers
+
 ### Installation
 1. Clone the repo
 ```git clone https://github.com/iankolaja/NuGrade.git```
@@ -30,9 +45,9 @@ The following packages are needed to run NuGrade locally:
 ```python -m pip install .```
 3. Add your Anthropic API key here (optional):
 ```keys/claude.txt```
-4. Add your nuclear data library files:
+4. Place nugrade_data.db:
 ```data/```
 ### Running
 1. Run the top level script.
-```python startnugrade.py```
+```python main.py```
 2. Navigate to your web browser and open the locally hosted Flask application. Default local address: http://127.0.0.1:4000/
