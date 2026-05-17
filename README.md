@@ -5,13 +5,13 @@ NuGrade is a Flask-based tool for assessing the quality of nuclear data at a gla
 
 Specific reaction channels can be examined more closely.
 
-![Nuclide lookup](static/screenshots/nuclide_lookup.png)
+![Nuclide lookup](static/screenshots/nuclide_lookup.png){width=250px}
 
 Claude is integrated with NuGrade, allowing for discussion of the computed metrics and analysis of the experimental corpus when available. The system is enhanced with retrieval-augmented generation that allows for specific sentences to be found. 
 
-![Demonstration of Claude AI integration to search literature](static/screenshots/chatbot_1.png)
+![Demonstration of Claude AI integration to search literature](static/screenshots/chatbot_1.png){width=250px}
 
-![Demonstration of Claude AI to discuss results.](static/screenshots/chatbot_2.png)
+![Demonstration of Claude AI to discuss results.](static/screenshots/chatbot_2.png){width=250px}
 
 
 
