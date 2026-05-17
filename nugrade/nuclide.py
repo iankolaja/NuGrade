@@ -71,7 +71,7 @@ class Reaction:
         self.energy_coverage_w_unc = calc_energy_coverage(channel_data_w_unc, options)
 
         # Get unique identifiers for all experiments
-        all_experiments = channel_data[["EXFOR_Subentry", "Author"]].drop_duplicates()
+        all_experiments = channel_data[["EXFOR_Entry", "EXFOR_Subentry", "Author"]].drop_duplicates()
         relevant_experiments = []
 
         # Assign the weighting function if using a flux spectrum
@@ -153,8 +153,7 @@ class Nuclide:
             sample_point = exfor_data.loc[exfor_data['EXFOR_Subentry'] == exp_id].sample()
             print("{0}: [{2}] {3}, {1}".format(
                 sample_point["Reaction_Notation"].item(),
-                sample_point["Dataset_Number"].item(),
-                sample_point["EXFOR_Subentry"].item(),
+                sample_point["EXFOR_Entry"].item(),
                 sample_point["Author"].item()))
     # (EXFOR.loc[EXFOR['EXFOR_Subentry'] == i].sample())
 
