@@ -18,15 +18,15 @@
     <h4 class="w3-center">Evaluated Reaction Channels</h4>
 
         <div class="w3-row-padding">
-            <input class="w3-check" name="p,el" type="checkbox" checked="checked">
+            <input class="w3-check" name="p,el" type="checkbox" {{ 'checked="checked"' if (2, 'P,EL') in options.required_reaction_channels }}>
             <label>(p,el)</label>
         </div>
         <div class="w3-row-padding">
-            <input class="w3-check" name="p,inl" type="checkbox" checked="checked">
+            <input class="w3-check" name="p,inl" type="checkbox" {{ 'checked="checked"' if (3, 'P,INL') in options.required_reaction_channels }}>
             <label>(p,inl)</label>
         </div>
         <div class="w3-row-padding">
-            <input class="w3-check" name="p,g" type="checkbox" checked="checked">
+            <input class="w3-check" name="p,g" type="checkbox" {{ 'checked="checked"' if (102, 'P,G') in options.required_reaction_channels }}>
             <label>(p,g)</label>
         </div>
 {% endblock %}
