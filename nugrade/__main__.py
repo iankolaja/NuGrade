@@ -4,6 +4,7 @@ from flask import request, session, jsonify
 from flask import render_template
 from . import *
 from .ai_agent import NuclearDataAgent
+from .db_contract import verify_schema
 import os
 import uuid
 import copy
@@ -25,13 +26,17 @@ md = MarkdownIt(
         "linkify": True,
         "typographer": True,
     }
-)
+).enable("table")
 
 version = '0.0.1'
 DB_PATH = str(BASE_DIR / 'data' / 'nugrade_data.db')
 CACHE_DB_PATH = str(BASE_DIR / 'data' / 'nugrade_cache.db')
 
 sql_con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, check_same_thread=False)
+
+for _warning in verify_schema(sql_con):
+    print(f"Schema warning: {_warning}")
+
 _nuclide_index = load_nuclide_index()
 
 cache_con = sqlite3.connect(CACHE_DB_PATH, check_same_thread=False)
@@ -176,13 +181,13 @@ default_options_text = default_options.gen_html_description()
 
 if os.path.isfile(str(BASE_DIR / 'keys' / 'claude.txt')):
     with open(str(BASE_DIR / 'keys' / 'claude.txt'), "r") as f:
-        anthropic_api_key = f.read()
+        anthropic_api_key = f.read().strip()
     try:
         claude_agent = NuclearDataAgent(api_key=anthropic_api_key, sql_con=sql_con)
         ai_available = True
-    except:
-        print("Access to Claude failed. Is your key correct, and "+\
-            " are you connected to the internet?")
+    except Exception as e:
+        print(f"Access to Claude failed ({type(e).__name__}: {e}). Is your key correct, "
+              "and are you connected to the internet?")
         ai_available = False
 else:
     print("No API key found in keys/claude.txt for Claude.")
@@ -377,7 +382,7 @@ def chat():
             msg = f"An error occurred: {err}"
         return jsonify({'agent_html': f"<p class='agent-message'>{msg}</p>"})
 
-    agent_html = f'<div class="agent-message-bubble"><p class="agent-message">{md.render(response_text)}</p></div>'
+    agent_html = f'<div class="agent-message-bubble"><div class="agent-message">{md.render(response_text)}</div></div>'
     sdata['chat_html'] += user_html + agent_html
 
     return jsonify({'agent_html': agent_html})
