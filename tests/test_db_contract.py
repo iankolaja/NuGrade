@@ -73,9 +73,6 @@ def test_wrong_embedding_dimensionality_is_rejected():
 # choice was intentional there. This test states the contract and is expected to
 # fail until that check happens, so the finding cannot be quietly lost.
 
-pytest.importorskip("transformers", reason="SciBERT not installed")
-
-
 @requires_db
 @pytest.mark.xfail(
     reason="known: _embed uses the CLS token, stored embeddings are mean-pooled; "
@@ -84,6 +81,7 @@ pytest.importorskip("transformers", reason="SciBERT not installed")
 )
 def test_query_embedding_matches_stored_pooling():
     """A query embedding must live in the same space as the stored document vectors."""
+    pytest.importorskip("transformers", reason="SciBERT not installed")
     from nugrade.ai_agent import NuclearDataAgent
 
     con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
