@@ -1,3 +1,15 @@
+# Secrets — everything in keys/ except the placeholder
+keys/*
+!keys/api_keys_go_here
+
+# Generated databases (built by the data/ML repo, not versioned here)
+*.db
+!data/test_data.db
+
+# Editor / OS cruft
+.idea/
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

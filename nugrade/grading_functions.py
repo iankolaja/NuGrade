@@ -4,9 +4,12 @@ from bokeh.plotting import figure, show
 from bokeh.embed import components
 from bokeh.palettes import inferno
 from bokeh.layouts import column
+from pathlib import Path
 import numpy as np
 import pandas as pd
-import re 
+import re
+
+BASE_DIR = Path(__file__).parent.parent
 
 def nuclide_symbol_format(input_nuclide):
     """Normalise a user-supplied nuclide string to the canonical '<A><Symbol>' form.
@@ -26,7 +29,7 @@ def nuclide_symbol_format(input_nuclide):
 
 def load_nuclide_index():
     """Return {nuclide_key: (Z, A, symbol)} for all valid nuclides in all_reactions.csv."""
-    all_reactions = pd.read_csv("data/all_reactions.csv")
+    all_reactions = pd.read_csv(BASE_DIR / "data" / "all_reactions.csv")
     index = {}
     for _, row in all_reactions[["Z", "A", "Symbol"]].drop_duplicates().iterrows():
         z, a, symbol = row["Z"], row["A"], row["Symbol"]
@@ -86,7 +89,7 @@ def grade_many_isotopes(options, sql_con):
     channel with data under the given options. Skips pseudo-entries (heavy water,
     free neutron, A=0).
     """
-    all_reactions = pd.read_csv("data/all_reactions.csv")
+    all_reactions = pd.read_csv(BASE_DIR / "data" / "all_reactions.csv")
     all_isotopes = all_reactions[["Z","A","Symbol"]].drop_duplicates()
     metrics = {}
     for index, row in all_isotopes.iterrows():

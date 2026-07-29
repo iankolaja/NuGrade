@@ -13,6 +13,12 @@ class NuclearDataAgent:
     a plain text response from ``chat()``.
     """
 
+    MODEL = "claude-opus-4-8"
+    # Effort trades answer quality against latency and token spend. Chat is interactive
+    # and most questions are lookups over a few tool calls, so 'medium' rather than the
+    # 'high' default; raise it if answers come back shallow on multi-step questions.
+    EFFORT = "medium"
+
     def __init__(self, api_key, sql_con=None):
         self.client = Anthropic(api_key=api_key)
         self.sql_con = sql_con
@@ -180,13 +186,22 @@ class NuclearDataAgent:
     # ------------------------------------------------------------------
 
     def _embed(self, text):
-        """Return a unit-normalised CLS-token embedding for ``text``."""
+        """Return a unit-normalised mean-pooled embedding for ``text``.
+
+        Must match the pooling used by get_embeddings_batch in the NuGrade-PreProcessing
+        repo (2_report_embedding.ipynb), which generates the stored sentence_embeddings:
+        attention-mask-weighted mean over tokens. A query vector built any other way
+        (e.g. the CLS token) lives in a different space than the stored documents and
+        silently degrades similarity ranking.
+        """
         inputs = self._tokenizer(
             text, return_tensors='pt', truncation=True, max_length=512, padding=True
         )
         with self._torch.no_grad():
             outputs = self._model(**inputs)
-        emb = outputs.last_hidden_state[:, 0, :].squeeze().numpy().astype(np.float32)
+        mask = inputs['attention_mask'].unsqueeze(-1).float()
+        emb = ((outputs.last_hidden_state * mask).sum(1) / mask.sum(1).clamp(min=1e-9))
+        emb = emb.squeeze().numpy().astype(np.float32)
         norm = np.linalg.norm(emb)
         return emb / (norm + 1e-8)
 
@@ -246,7 +261,7 @@ class NuclearDataAgent:
 
         drop_columns = ['dEnergy', 'dData_assumed', 'EXFOR_Entry', 'endf7-1_chi_squared',
                         'endf7-1_relative_error', 'endf8_relative_error', 'endf8_chi_squared']
-        result = (full_data.sort_values(by="endf8_relative_error")
+        result = (full_data.sort_values(by="endf8_relative_error", ascending=False)
                            .drop(columns=drop_columns)
                            .reset_index(drop=True)
                            .iloc[:10])
@@ -397,16 +412,48 @@ class NuclearDataAgent:
 
     @staticmethod
     def _serialize_content(content):
+        """Convert response blocks to plain dicts for storage in the session history.
+
+        Thinking blocks must be preserved and replayed unchanged: the API rejects a
+        continued conversation whose thinking blocks were dropped or edited.
+        """
         result = []
         for block in content:
-            if hasattr(block, 'type'):
-                if block.type == "text":
-                    result.append({"type": "text", "text": block.text})
-                elif block.type == "tool_use":
-                    result.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.input})
-            else:
+            if not hasattr(block, 'type'):
                 result.append(block)
+            elif block.type == "text":
+                result.append({"type": "text", "text": block.text})
+            elif block.type == "tool_use":
+                result.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.input})
+            elif block.type == "thinking":
+                result.append({"type": "thinking", "thinking": block.thinking,
+                               "signature": block.signature})
+            elif block.type == "redacted_thinking":
+                result.append({"type": "redacted_thinking", "data": block.data})
         return result
+
+    @staticmethod
+    def _apply_cache_breakpoint(conversation_history):
+        """Move the prompt-cache breakpoint to the end of the conversation.
+
+        The system prompt and tool schemas together fall short of the model's minimum
+        cacheable prefix, so caching them achieves nothing. The history does cross that
+        threshold once tool results (data tables, retrieved passages) accumulate, so the
+        breakpoint goes on the newest turn and each request reuses the prior prefix.
+        Stale breakpoints are cleared first — the API allows at most four per request.
+        """
+        for message in conversation_history:
+            if isinstance(message["content"], list):
+                for block in message["content"]:
+                    if isinstance(block, dict):
+                        block.pop("cache_control", None)
+
+        for message in reversed(conversation_history):
+            if isinstance(message["content"], list) and message["content"]:
+                last_block = message["content"][-1]
+                if isinstance(last_block, dict):
+                    last_block["cache_control"] = {"type": "ephemeral"}
+                return
 
     def chat(self, user_message, metrics, options, conversation_history=None):
         """Send a user message and run the tool-use loop until a final text response is ready.
@@ -450,35 +497,42 @@ class NuclearDataAgent:
                             block["content"] = "[result omitted from history]"
 
         while True:
+            self._apply_cache_breakpoint(conversation_history)
+
             response = self.client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=4096,
+                model=self.MODEL,
+                max_tokens=8192,
+                thinking={"type": "adaptive"},
+                output_config={"effort": self.EFFORT},
                 system=self.skill,
                 tools=self.tools,
                 messages=conversation_history
             )
 
+            conversation_history.append({
+                "role": "assistant",
+                "content": self._serialize_content(response.content)
+            })
+
             if response.stop_reason == "tool_use":
-                conversation_history.append({
-                    "role": "assistant",
-                    "content": self._serialize_content(response.content)
-                })
+                # All results from one assistant turn go back in a single user message.
+                # Splitting them across messages teaches the model to stop calling tools
+                # in parallel.
+                tool_results = []
                 for tool_use in (b for b in response.content if b.type == "tool_use"):
                     print(f"[tool] {tool_use.name}({tool_use.input})")
-                    tool_result = self.execute_tool(
-                        tool_use.name, tool_use.input,
-                        metrics=metrics, options=options
-                    )
-                    conversation_history.append({
-                        "role": "user",
-                        "content": [{"type": "tool_result", "tool_use_id": tool_use.id, "content": tool_result}]
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": tool_use.id,
+                        "content": self.execute_tool(
+                            tool_use.name, tool_use.input,
+                            metrics=metrics, options=options
+                        ),
                     })
+                conversation_history.append({"role": "user", "content": tool_results})
             else:
                 final_response = next(
-                    block.text for block in response.content if hasattr(block, "text")
+                    (block.text for block in response.content if block.type == "text"),
+                    "I wasn't able to produce a response to that."
                 )
-                conversation_history.append({
-                    "role": "assistant",
-                    "content": self._serialize_content(response.content)
-                })
                 return final_response, conversation_history

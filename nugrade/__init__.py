@@ -1,8 +1,8 @@
 from .nuclide import Nuclide, Reaction
 from .metric_options import MetricOptions
-from .grading_functions import grade_isotope, grade_many_isotopes, plot_grades, nuclide_symbol_format
+from .grading_functions import grade_isotope, grade_many_isotopes, plot_grades, nuclide_symbol_format, load_nuclide_index, LazyMetrics
 from .ai_agent import NuclearDataAgent
 
 __all__ = ['Nuclide', 'Reaction', 'MetricOptions',
            'grade_isotope', 'grade_many_isotopes', 'plot_grades',
-           'nuclide_symbol_format']
+           'nuclide_symbol_format', 'load_nuclide_index', 'LazyMetrics']
