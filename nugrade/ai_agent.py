@@ -186,13 +186,22 @@ class NuclearDataAgent:
     # ------------------------------------------------------------------
 
     def _embed(self, text):
-        """Return a unit-normalised CLS-token embedding for ``text``."""
+        """Return a unit-normalised mean-pooled embedding for ``text``.
+
+        Must match the pooling used by get_embeddings_batch in the NuGrade-PreProcessing
+        repo (2_report_embedding.ipynb), which generates the stored sentence_embeddings:
+        attention-mask-weighted mean over tokens. A query vector built any other way
+        (e.g. the CLS token) lives in a different space than the stored documents and
+        silently degrades similarity ranking.
+        """
         inputs = self._tokenizer(
             text, return_tensors='pt', truncation=True, max_length=512, padding=True
         )
         with self._torch.no_grad():
             outputs = self._model(**inputs)
-        emb = outputs.last_hidden_state[:, 0, :].squeeze().numpy().astype(np.float32)
+        mask = inputs['attention_mask'].unsqueeze(-1).float()
+        emb = ((outputs.last_hidden_state * mask).sum(1) / mask.sum(1).clamp(min=1e-9))
+        emb = emb.squeeze().numpy().astype(np.float32)
         norm = np.linalg.norm(emb)
         return emb / (norm + 1e-8)
 
